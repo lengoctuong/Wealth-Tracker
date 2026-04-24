@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "createdAt"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "A financial account or source (e.g., VNDIRECT, Binance, Momo)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["bank", "brokerage", "fintech", "ewallet", "crypto", "polymarket", "cash", "other"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "type", "createdAt"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "An asset within an account",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "category": { "type": "string", "description": "e.g., stock, etf, cash, coin, usdt, saving, fund" },
+        "name": { "type": "string" },
+        "symbol": { "type": "string" },
+        "quantity": { "type": "number" },
+        "currentPrice": { "type": "number" },
+        "purchasePrice": { "type": "number" },
+        "purchaseDate": { "type": "string", "format": "date" },
+        "balance": { "type": "number" },
+        "currency": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "accountId", "category", "name", "currency", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction (income, expense, transfer)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense", "transfer"] },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "assetId", "type", "amount", "category", "date"]
+    },
+    "InvestmentTransaction": {
+      "title": "Investment Transaction",
+      "description": "A buy or sell transaction for an investment asset",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "type": { "type": "string", "enum": ["buy", "sell"] },
+        "quantity": { "type": "number" },
+        "price": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "assetId", "type", "quantity", "price", "date", "createdAt"]
+    },
+    "AssetHistory": {
+      "title": "Asset History",
+      "description": "Daily snapshot of asset values",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "date": { "type": "string", "description": "YYYY-MM-DD" },
+        "totalValue": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "realizedProfit": { "type": "number" },
+        "vnIndex": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "accountId", "date", "totalValue", "timestamp"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "User specific settings and manual overrides",
+      "type": "object",
+      "properties": {
+        "usdtRate": { "type": "number" },
+        "vnIndexPrice": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user profiles" },
+    "/accounts/{accountId}": { "schema": { "$ref": "#/entities/Account" }, "description": "Stores user accounts/sources" },
+    "/assets/{assetId}": { "schema": { "$ref": "#/entities/Asset" }, "description": "Stores user assets" },
+    "/assetHistory/{historyId}": { "schema": { "$ref": "#/entities/AssetHistory" }, "description": "Stores daily snapshots" },
+    "/settings/{userId}": { "schema": { "$ref": "#/entities/Settings" }, "description": "Stores user specific settings" },
+    "/transactions/{transactionId}": { "schema": { "$ref": "#/entities/Transaction" }, "description": "Stores financial transactions" },
+    "/investment_transactions/{txId}": { "schema": { "$ref": "#/entities/InvestmentTransaction" }, "description": "Stores investment transactions" }
+  }
+}

@@ -1,0 +1,188 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: /users/{userId}
+    // Fields:
+    //   - name: string (required)
+    //   - email: string (required, email format)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: /accounts/{accountId}
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - name: string (required, 1-100 chars)
+    //   - type: string (required, enum: bank, brokerage, fintech, ewallet, crypto, polymarket, cash, other)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: /assets/{assetId}
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - accountId: string (required)
+    //   - category: string (required)
+    //   - name: string (required)
+    //   - symbol: string (optional)
+    //   - quantity: number (optional)
+    //   - currentPrice: number (optional)
+    //   - purchasePrice: number (optional)
+    //   - purchaseDate: string (optional, YYYY-MM-DD)
+    //   - balance: number (optional)
+    //   - currency: string (required)
+    //   - updatedAt: timestamp (required)
+    //
+    // Collection: /assetHistory/{historyId}
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - accountId: string (required)
+    //   - date: string (required, YYYY-MM-DD)
+    //   - totalValue: number (required)
+    //   - vnIndex: number (optional)
+    //   - timestamp: timestamp (required)
+    //
+    // Collection: /transactions/{transactionId}
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - assetId: string (required)
+    //   - type: string (required, enum: income, expense, transfer)
+    //   - amount: number (required)
+    //   - category: string (required)
+    //   - description: string (optional)
+    //   - date: timestamp (required)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: /investment_transactions/{txId}
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - assetId: string (required)
+    //   - type: string (required, enum: buy, sell)
+    //   - quantity: number (required)
+    //   - price: number (required)
+    //   - date: string (required, YYYY-MM-DD)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: /settings/{userId}
+    // Fields:
+    //   - usdtRate: number (optional)
+    //   - vnIndexPrice: number (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() { return request.auth != null; }
+    function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
+    function isDocOwner() { return isAuthenticated() && request.auth.uid == resource.data.userId; }
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "lnt23052002@gmail.com" && request.auth.token.email_verified == true));
+    }
+    
+    function uidUnchanged() { return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid; }
+    function uidNotModified() { return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId; }
+    function hasRequiredFields(fields) { return request.resource.data.keys().hasAll(fields); }
+    function hasOnlyAllowedFields(fields) { return request.resource.data.keys().hasOnly(fields); }
+    
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+    
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['name', 'email', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email);
+    }
+
+    function isValidAccount(data) {
+      return hasRequiredFields(['userId', 'name', 'type', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.type in ['bank', 'brokerage', 'fintech', 'ewallet', 'crypto', 'polymarket', 'cash', 'other'];
+    }
+
+    function isValidAsset(data) {
+      return hasRequiredFields(['userId', 'accountId', 'category', 'name', 'currency', 'updatedAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('purchaseDate' in data) || isValidDateString(data.purchaseDate));
+    }
+
+    function isValidTransaction(data) {
+      return hasRequiredFields(['userId', 'assetId', 'type', 'amount', 'category', 'date']) &&
+             data.type in ['income', 'expense', 'transfer'] &&
+             data.amount is number;
+    }
+
+    function isValidInvestmentTransaction(data) {
+      return hasRequiredFields(['userId', 'assetId', 'type', 'quantity', 'price', 'date', 'createdAt']) &&
+             data.type in ['buy', 'sell'] &&
+             data.quantity is number &&
+             data.price is number &&
+             isValidDateString(data.date);
+    }
+
+    // ===============================================================
+    // Match Rules
+    // ===============================================================
+    
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdmin();
+    }
+    
+    match /accounts/{accountId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidAccount(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidAccount(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /assets/{assetId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidAsset(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidAsset(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /assetHistory/{historyId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && uidUnchanged() && hasRequiredFields(['userId', 'accountId', 'date', 'totalValue', 'timestamp']);
+      allow update: if isDocOwner() && uidNotModified();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+    
+    match /transactions/{transactionId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidTransaction(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidTransaction(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /investment_transactions/{txId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidInvestmentTransaction(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidInvestmentTransaction(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /settings/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+  }
+}

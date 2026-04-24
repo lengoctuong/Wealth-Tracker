@@ -1,0 +1,177 @@
+[
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Hòa Phát",
+    "assetSymbol": "HPG",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 1000, "price": 25000, "date": "2024-01-10" },
+      { "type": "buy", "quantity": 500, "price": 24000, "date": "2024-01-20" },
+      { "type": "buy", "quantity": 500, "price": 23500, "date": "2024-02-05" }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "FPT",
+    "assetSymbol": "FPT",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 500, "price": 95000, "date": "2024-01-20" },
+      { "type": "sell", "quantity": 200, "price": 115000, "date": "2024-03-01" }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Vinamilk",
+    "assetSymbol": "VNM",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 1000, "price": 70000, "date": "2023-11-15" },
+      { "type": "sell", "quantity": 1000, "price": 75000, "date": "2024-01-05" }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Tiền mặt VNDIRECT",
+    "assetSymbol": "CASH_VND",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 1, "price": 15000000, "date": "2024-03-29" }
+    ]
+  },
+  {
+    "accountName": "TCBS",
+    "accountType": "brokerage",
+    "assetName": "Quỹ TCBF",
+    "assetSymbol": "TCBF",
+    "assetCategory": "fund",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 1000, "price": 18000, "date": "2024-01-01" },
+      { "type": "buy", "quantity": 500, "price": 18500, "date": "2024-02-01" },
+      { "type": "buy", "quantity": 500, "price": 18200, "date": "2024-03-01" }
+    ]
+  },
+  {
+    "accountName": "Binance",
+    "accountType": "crypto",
+    "assetName": "Bitcoin",
+    "assetSymbol": "BTC",
+    "assetCategory": "coin",
+    "currency": "USDT",
+    "transactions": [
+      { "type": "buy", "quantity": 0.1, "price": 40000, "date": "2024-01-05" },
+      { "type": "buy", "quantity": 0.05, "price": 38000, "date": "2024-01-25" },
+      { "type": "sell", "quantity": 0.1, "price": 65000, "date": "2024-03-15" }
+    ]
+  },
+  {
+    "accountName": "Binance",
+    "accountType": "crypto",
+    "assetName": "Ethereum",
+    "assetSymbol": "ETH",
+    "assetCategory": "coin",
+    "currency": "USDT",
+    "transactions": [
+      { "type": "buy", "quantity": 1, "price": 2000, "date": "2023-12-10" },
+      { "type": "sell", "quantity": 1, "price": 3500, "date": "2024-02-28" }
+    ]
+  },
+  {
+    "accountName": "Binance",
+    "accountType": "crypto",
+    "assetName": "Tether",
+    "assetSymbol": "USDT",
+    "assetCategory": "usdt",
+    "currency": "USD",
+    "transactions": [
+      { "type": "buy", "quantity": 1500, "price": 1, "date": "2024-03-29" }
+    ]
+  },
+  {
+    "accountName": "Binance",
+    "accountType": "crypto",
+    "assetName": "Grid Trading Bot",
+    "assetSymbol": "BOT_BTC",
+    "assetCategory": "bot",
+    "currency": "USDT",
+    "transactions": [
+      { "type": "buy", "quantity": 500, "price": 1, "date": "2024-03-01" }
+    ]
+  },
+  {
+    "accountName": "Vietcombank",
+    "accountType": "bank",
+    "assetName": "Tiết kiệm 6 tháng",
+    "assetSymbol": "SAV_VCB",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 1, "price": 100000000, "date": "2024-01-01" }
+    ]
+  },
+  {
+    "accountName": "Vietcombank",
+    "accountType": "bank",
+    "assetName": "Tài khoản thanh toán",
+    "assetSymbol": "CASH_VCB",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 1, "price": 25000000, "date": "2024-03-29" }
+    ]
+  },
+  {
+    "accountName": "Momo",
+    "accountType": "ewallet",
+    "assetName": "Túi Thần Tài",
+    "assetSymbol": "SAV_MOMO",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 1, "price": 5000000, "date": "2024-02-01" }
+    ]
+  },
+  {
+    "accountName": "Momo",
+    "accountType": "ewallet",
+    "assetName": "Số dư ví",
+    "assetSymbol": "CASH_MOMO",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "transactions": [
+      { "type": "buy", "quantity": 1, "price": 1500000, "date": "2024-03-29" }
+    ]
+  },
+  {
+    "accountName": "Polymarket",
+    "accountType": "polymarket",
+    "assetName": "Trump Win 2024",
+    "assetSymbol": "POS_TRUMP",
+    "assetCategory": "position",
+    "currency": "USDC",
+    "transactions": [
+      { "type": "buy", "quantity": 100, "price": 0.45, "date": "2024-02-15" },
+      { "type": "buy", "quantity": 50, "price": 0.50, "date": "2024-03-10" }
+    ]
+  },
+  {
+    "accountName": "Polymarket",
+    "accountType": "polymarket",
+    "assetName": "USDC Balance",
+    "assetSymbol": "USDC",
+    "assetCategory": "usdc",
+    "currency": "USD",
+    "transactions": [
+      { "type": "buy", "quantity": 200, "price": 1, "date": "2024-03-29" }
+    ]
+  }
+]
