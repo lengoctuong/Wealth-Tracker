@@ -8,6 +8,7 @@ import { FileJson, Upload, Download, Loader2, AlertCircle } from "lucide-react";
 import { useAccounts } from "../hooks/useAccounts";
 import { Asset, useAssets } from "../hooks/useAssets";
 import { useInvestmentTransactions } from "../hooks/useTransactions";
+import { Progress } from "./ui/progress";
 
 interface Props {
   isOpen: boolean;
@@ -35,6 +36,8 @@ interface ImportAsset {
 export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) {
   const [jsonInput, setJsonInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { accounts, addAccount } = useAccounts();
@@ -62,7 +65,15 @@ export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) 
     const localCreatedAccounts: Record<string, string> = {};
 
     try {
+      const totalItems = data.length;
+      let currentIndex = 0;
+
       for (const item of data) {
+        currentIndex++;
+        const currentProgress = Math.round((currentIndex / totalItems) * 100);
+        setProgress(currentProgress);
+        setStatusText(`Đang nhập ${item.assetSymbol} (${currentIndex}/${totalItems})...`);
+
         try {
           // 1. Find or create account
           const accountKey = `${item.accountName}-${item.accountType}`;
@@ -136,7 +147,8 @@ export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) 
       toast.success(`Đã nhập thành công ${successCount} tài sản. ${errorCount > 0 ? `Có ${errorCount} lỗi.` : ""}`);
       
       if (onSyncMarketPrices && successCount > 0) {
-        toast.info("Đang tự động đồng bộ giá thị trường...");
+        setStatusText("Đang đồng bộ giá thị trường...");
+        setProgress(100);
         await onSyncMarketPrices(importedAssets);
       }
 
@@ -145,6 +157,8 @@ export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) 
       toast.error("Lỗi hệ thống khi nhập dữ liệu");
     } finally {
       setLoading(false);
+      setProgress(0);
+      setStatusText("");
     }
   };
 
@@ -208,8 +222,19 @@ export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) 
               className="min-h-[200px] font-mono text-xs"
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
+              disabled={loading}
             />
           </div>
+
+          {loading && (
+            <div className="space-y-2 py-2">
+              <div className="flex justify-between text-xs text-gray-500 font-medium">
+                <span>{statusText}</span>
+                <span>{progress}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          )}
 
           <div className="flex items-center gap-4">
             <div className="flex-1 h-[1px] bg-gray-200"></div>

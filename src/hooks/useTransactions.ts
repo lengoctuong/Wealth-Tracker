@@ -259,7 +259,8 @@ export const useInvestmentTransactions = (assetId?: string) => {
         assetGroups[tx.assetId].push(tx);
       });
       
-      const batch = writeBatch(db);
+      let batch = writeBatch(db);
+      let operationCount = 0;
       
       // 3. Re-calculate FIFO for each asset
       for (const assetId in assetGroups) {
@@ -275,6 +276,7 @@ export const useInvestmentTransactions = (assetId?: string) => {
             tx.isClosed = false;
             openBuys.push(tx);
             batch.update(txRef, { remainingQty: tx.quantity, isClosed: false });
+            operationCount++;
           } else {
             // Process sell transaction
             let qtyToSell = tx.quantity;
@@ -293,21 +295,40 @@ export const useInvestmentTransactions = (assetId?: string) => {
                 buyTx.remainingQty = 0;
                 buyTx.isClosed = true;
                 batch.update(buyRef, { remainingQty: 0, isClosed: true });
+                operationCount++;
               } else {
                 totalPurchaseCost += qtyToSell * buyTx.price;
                 buyTx.remainingQty -= qtyToSell;
                 qtyToSell = 0;
                 batch.update(buyRef, { remainingQty: buyTx.remainingQty, isClosed: false });
+                operationCount++;
+              }
+
+              // Check batch limit
+              if (operationCount >= 400) {
+                await batch.commit();
+                batch = writeBatch(db);
+                operationCount = 0;
               }
             }
             
             const purchasePrice = tx.quantity > 0 ? totalPurchaseCost / (tx.quantity - qtyToSell) : 0;
             batch.update(txRef, { purchasePrice, isClosed: true, remainingQty: 0 });
+            operationCount++;
+          }
+
+          // Check batch limit again after each transaction processing
+          if (operationCount >= 400) {
+            await batch.commit();
+            batch = writeBatch(db);
+            operationCount = 0;
           }
         }
       }
       
-      await batch.commit();
+      if (operationCount > 0) {
+        await batch.commit();
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, "investment_transactions/rebuild");
     }

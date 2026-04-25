@@ -123,10 +123,16 @@ export function StandardTab({
                                 const current = asset.balance || 0;
                                 if (initial === 0) return <span className="text-gray-400">-</span>;
                                 const growth = ((current - initial) / initial) * 100;
+                                const profit = current - initial;
                                 return (
-                                  <span className={`text-xs font-medium ${growth >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                    {growth >= 0 ? "+" : ""}{growth.toFixed(2)}%
-                                  </span>
+                                  <div className="flex flex-col items-end">
+                                    <span className={`text-xs font-medium ${growth >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                      {growth >= 0 ? "+" : ""}{growth.toFixed(2)}%
+                                    </span>
+                                    <span className={`text-[10px] ${profit >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                      ({profit >= 0 ? "+" : ""}{showValues ? formatCurrency(profit, asset.currency) : "****"})
+                                    </span>
+                                  </div>
                                 );
                               })()}
                             </TableCell>

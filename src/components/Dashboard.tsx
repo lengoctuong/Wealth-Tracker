@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { doc, getDoc, setDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, query, where, orderBy, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { useAccounts, AccountType, Account } from "../hooks/useAccounts";
@@ -30,13 +30,13 @@ export function Dashboard() {
   const { accounts, loading: accountsLoading, addAccount, updateAccount, deleteAccount, clearAccounts } = useAccounts();
   const { assets: rawAssets, loading: assetsLoading, addAsset, updateAsset, deleteAsset, clearAssets } = useAssets();
   const assets = rawAssets.filter(a => !a.isFinished && (a.quantity === undefined || a.quantity > 0 || !['stock', 'etf', 'coin', 'fund'].includes(a.category)));
-  const { 
-    transactions: investmentTransactions, 
+  const {
+    transactions: investmentTransactions,
     clearInvestmentTransactions,
-    rebuildFIFOLayers 
+    rebuildFIFOLayers
   } = useInvestmentTransactions();
   const { transactions: regularTransactions } = useTransactions();
-  
+
   const earliestTransactionDate = useMemo(() => {
     if (investmentTransactions.length === 0) return null;
     return investmentTransactions.reduce((earliest, tx) => {
@@ -49,7 +49,7 @@ export function Dashboard() {
   const vnIndex = manualVnIndex !== null ? { price: manualVnIndex, change: 0, changePercent: 0, date: new Date().toISOString() } : marketVnIndex;
   const [usdtRate, setUsdtRate] = useState(25500);
   const { history, backfillHistory, isBackfilling, backfillProgress } = useAssetHistory(rawAssets, vnIndex?.price || 0, usdtRate);
-  
+
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -65,6 +65,8 @@ export function Dashboard() {
   const [tempUsdt, setTempUsdt] = useState("25500");
   const [showValues, setShowValues] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [clearProgress, setClearProgress] = useState(0);
+  const [clearStatus, setClearStatus] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -155,13 +157,50 @@ export function Dashboard() {
 
   const handleClearAllData = async () => {
     try {
+      setClearStatus("Đang xóa tài sản...");
+      setClearProgress(20);
       await clearAssets();
+
+      setClearStatus("Đang xóa nguồn tiền...");
+      setClearProgress(40);
       await clearAccounts();
+
+      setClearStatus("Đang xóa lịch sử giao dịch...");
+      setClearProgress(60);
       await clearInvestmentTransactions();
+
+      setClearStatus("Đang xóa lịch sử tài sản...");
+      setClearProgress(80);
+      // Also clear asset history
+      const historySnap = await getDocs(query(collection(db, "assetHistory"), where("userId", "==", user!.uid)));
+      const docs = historySnap.docs;
+      const totalHistory = docs.length;
+
+      if (totalHistory > 0) {
+        // Use Batch for fast deletion (max 500 per batch)
+        for (let i = 0; i < totalHistory; i += 500) {
+          const batch = writeBatch(db);
+          const chunk = docs.slice(i, i + 500);
+          chunk.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+
+          // Update progress after each batch
+          const progress = 80 + (Math.min(i + 500, totalHistory) / totalHistory) * 20;
+          setClearProgress(Math.min(progress, 99));
+        }
+      }
+
+      setClearProgress(100);
+      setClearStatus("Hoàn tất!");
       toast.success("Đã xóa toàn bộ dữ liệu thành công!");
     } catch (error) {
       console.error("Clear all data failed", error);
       toast.error("Lỗi khi xóa dữ liệu!");
+    } finally {
+      setTimeout(() => {
+        setClearProgress(0);
+        setClearStatus("");
+      }, 1000);
     }
   };
 
@@ -180,7 +219,7 @@ export function Dashboard() {
   const handleSyncMarketPrices = async (assetsToSync?: Asset[]) => {
     // Use provided assets or fall back to current state
     const assetsSource = assetsToSync || rawAssets;
-    
+
     // Default to 5 years ago if no transactions
     let startDateToSync = earliestTransactionDate;
     if (!startDateToSync) {
@@ -188,10 +227,10 @@ export function Dashboard() {
       fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
       startDateToSync = fiveYearsAgo.toISOString().split('T')[0];
     }
-    
+
     // Collect all valid symbols
     const validAssets = assetsSource.filter(a => a.symbol && !a.isFinished);
-    
+
     const symbolsToSync: { symbol: string, type: string }[] = [{ symbol: 'VNINDEX', type: 'stock' }];
     const seenSymbols = new Set<string>();
 
@@ -201,7 +240,7 @@ export function Dashboard() {
         let type = 'stock';
         if (asset.category === 'fund') type = 'fund';
         else if (asset.category === 'coin' || asset.category === 'crypto' || asset.category === 'usdt') type = 'crypto';
-        
+
         symbolsToSync.push({ symbol: asset.symbol, type });
       }
     });
@@ -214,15 +253,31 @@ export function Dashboard() {
     const results = await syncMarketPrices(symbolsToSync, startDateToSync);
     if (results) {
       let updateCount = 0;
+      let batch = writeBatch(db);
+      let operationCount = 0;
+      
       for (const asset of validAssets) {
         if (asset.symbol && results[asset.symbol] !== undefined) {
           const latestPrice = results[asset.symbol];
           if (asset.currentPrice !== latestPrice) {
-            await updateAsset(asset.id, { currentPrice: latestPrice });
+            const assetRef = doc(db, "assets", asset.id);
+            batch.update(assetRef, { currentPrice: latestPrice });
             updateCount++;
+            operationCount++;
+            
+            if (operationCount >= 400) {
+              await batch.commit();
+              batch = writeBatch(db);
+              operationCount = 0;
+            }
           }
         }
       }
+      
+      if (operationCount > 0) {
+        await batch.commit();
+      }
+      
       toast.success(`Đã đồng bộ giá thị trường thành công! ${updateCount > 0 ? `Đã cập nhật Giá HT cho ${updateCount} tài sản.` : ''}`);
       return results;
     } else {
@@ -237,7 +292,7 @@ export function Dashboard() {
       const accountAssets = rawAssets.filter(a => a.accountId === id);
       const promises = accountAssets.map(a => deleteAsset(a.id));
       await Promise.all(promises);
-      
+
       // Then delete the account
       await deleteAccount(id);
       toast.success("Đã xóa nguồn tài sản thành công");
@@ -265,10 +320,24 @@ export function Dashboard() {
 
       // 1. Rebuild FIFO layers for all transactions
       await rebuildFIFOLayers();
-      
-      // 2. Then backfill history based on prices in DB
-      await backfillHistory(investmentTransactions);
-      
+
+      // 2. Fetch LATEST transactions and assets directly from DB to avoid race conditions with React state
+      const latestTxsQuery = query(
+        collection(db, "investment_transactions"),
+        where("userId", "==", user!.uid),
+        orderBy("date", "desc")
+      );
+      const [txsSnapshot, assetsSnapshot] = await Promise.all([
+        getDocs(latestTxsQuery),
+        getDocs(query(collection(db, "assets"), where("userId", "==", user!.uid)))
+      ]);
+
+      const latestTxs = txsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      const latestAssets = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+      // 3. Then backfill history based on these fresh transactions and assets
+      await backfillHistory(latestTxs, latestAssets);
+
       toast.success("Đã đồng bộ lịch sử thành công!");
     } catch (error) {
       console.error("Sync history failed", error);
@@ -290,8 +359,8 @@ export function Dashboard() {
               <div className="hidden md:flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-full bg-blue-50 text-blue-700">
                 {isEditingVnIndex ? (
                   <div className="flex items-center gap-1">
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       className="w-20 bg-white border border-blue-200 rounded px-1 py-0.5 text-xs focus:outline-none"
                       value={tempVnIndex}
                       onChange={(e) => setTempVnIndex(e.target.value)}
@@ -321,7 +390,7 @@ export function Dashboard() {
                     setTempVnIndex(vnIndex.price.toString());
                     setIsEditingVnIndex(true);
                   }}>
-                    VN-INDEX: {vnIndex.price.toLocaleString()} 
+                    VN-INDEX: {vnIndex.price.toLocaleString()}
                     <span className={vnIndex.change >= 0 ? "text-green-600" : "text-red-600"}>
                       ({vnIndex.change >= 0 ? "+" : ""}{vnIndex.change})
                     </span>
@@ -331,8 +400,8 @@ export function Dashboard() {
             )}
             <div className="hidden md:flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-full bg-green-50 text-green-700">
               {isEditingUsdt ? (
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   className="w-16 bg-white border border-green-200 rounded px-1 py-0.5 text-xs focus:outline-none"
                   value={tempUsdt}
                   onChange={(e) => setTempUsdt(e.target.value)}
@@ -366,7 +435,7 @@ export function Dashboard() {
               )}
             </div>
           </div>
-            <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)} title="Cài đặt">
               <Settings className="w-5 h-5" />
             </Button>
@@ -410,30 +479,30 @@ export function Dashboard() {
           </div>
 
           <TabsContent value="overview">
-            <OverviewTab 
-              accounts={accounts} 
-              assets={rawAssets} 
-              history={history} 
-              vnIndexHistory={vnIndexHistory} 
-              vnIndex={vnIndex} 
+            <OverviewTab
+              accounts={accounts}
+              assets={rawAssets}
+              history={history}
+              vnIndexHistory={vnIndexHistory}
+              vnIndex={vnIndex}
               investmentTransactions={investmentTransactions}
               isBackfilling={isBackfilling}
               onBackfill={handleSyncHistory}
-              usdtRate={usdtRate} 
-              showValues={showValues} 
+              usdtRate={usdtRate}
+              showValues={showValues}
             />
           </TabsContent>
 
           <TabsContent value="bank">
-            <StandardTab 
-              type="bank" 
-              title="Tài khoản Ngân hàng" 
-              accounts={accounts} 
-              assets={assets} 
+            <StandardTab
+              type="bank"
+              title="Tài khoản Ngân hàng"
+              accounts={accounts}
+              assets={assets}
               transactions={regularTransactions}
               usdtRate={usdtRate}
               showValues={showValues}
-              onDeleteAsset={handleDeleteAsset} 
+              onDeleteAsset={handleDeleteAsset}
               onDeleteAccount={handleDeleteAccount}
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
@@ -441,15 +510,15 @@ export function Dashboard() {
           </TabsContent>
 
           <TabsContent value="ewallet">
-            <StandardTab 
-              type="ewallet" 
-              title="Ví điện tử" 
-              accounts={accounts} 
-              assets={assets} 
+            <StandardTab
+              type="ewallet"
+              title="Ví điện tử"
+              accounts={accounts}
+              assets={assets}
               transactions={regularTransactions}
               usdtRate={usdtRate}
               showValues={showValues}
-              onDeleteAsset={handleDeleteAsset} 
+              onDeleteAsset={handleDeleteAsset}
               onDeleteAccount={handleDeleteAccount}
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
@@ -457,17 +526,17 @@ export function Dashboard() {
           </TabsContent>
 
           <TabsContent value="fintech">
-            <InvestmentTab 
-              type="fintech" 
-              title="Tài khoản Fintech" 
-              accounts={accounts} 
-              assets={rawAssets} 
-              history={history} 
-              vnIndexHistory={vnIndexHistory} 
+            <InvestmentTab
+              type="fintech"
+              title="Tài khoản Fintech"
+              accounts={accounts}
+              assets={rawAssets}
+              history={history}
+              vnIndexHistory={vnIndexHistory}
               investmentTransactions={investmentTransactions}
               usdtRate={usdtRate}
               showValues={showValues}
-              onDeleteAsset={handleDeleteAsset} 
+              onDeleteAsset={handleDeleteAsset}
               onDeleteAccount={handleDeleteAccount}
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
@@ -476,17 +545,17 @@ export function Dashboard() {
           </TabsContent>
 
           <TabsContent value="brokerage">
-            <InvestmentTab 
-              type="brokerage" 
-              title="Tài khoản Chứng khoán" 
-              accounts={accounts} 
-              assets={rawAssets} 
-              history={history} 
-              vnIndexHistory={vnIndexHistory} 
+            <InvestmentTab
+              type="brokerage"
+              title="Tài khoản Chứng khoán"
+              accounts={accounts}
+              assets={rawAssets}
+              history={history}
+              vnIndexHistory={vnIndexHistory}
               investmentTransactions={investmentTransactions}
               usdtRate={usdtRate}
               showValues={showValues}
-              onDeleteAsset={handleDeleteAsset} 
+              onDeleteAsset={handleDeleteAsset}
               onDeleteAccount={handleDeleteAccount}
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
@@ -495,17 +564,17 @@ export function Dashboard() {
           </TabsContent>
 
           <TabsContent value="crypto">
-            <InvestmentTab 
-              type="crypto" 
-              title="Tài khoản Crypto" 
-              accounts={accounts} 
-              assets={rawAssets} 
-              history={history} 
-              vnIndexHistory={vnIndexHistory} 
+            <InvestmentTab
+              type="crypto"
+              title="Tài khoản Crypto"
+              accounts={accounts}
+              assets={rawAssets}
+              history={history}
+              vnIndexHistory={vnIndexHistory}
               investmentTransactions={investmentTransactions}
               usdtRate={usdtRate}
               showValues={showValues}
-              onDeleteAsset={handleDeleteAsset} 
+              onDeleteAsset={handleDeleteAsset}
               onDeleteAccount={handleDeleteAccount}
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
@@ -514,15 +583,15 @@ export function Dashboard() {
           </TabsContent>
 
           <TabsContent value="other">
-            <StandardTab 
-              type="other" 
-              title="Tài sản khác" 
-              accounts={accounts} 
-              assets={assets} 
+            <StandardTab
+              type="other"
+              title="Tài sản khác"
+              accounts={accounts}
+              assets={assets}
               transactions={regularTransactions}
               usdtRate={usdtRate}
               showValues={showValues}
-              onDeleteAsset={handleDeleteAsset} 
+              onDeleteAsset={handleDeleteAsset}
               onDeleteAccount={handleDeleteAccount}
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
@@ -531,20 +600,20 @@ export function Dashboard() {
         </Tabs>
       </main>
 
-      <AddAccountModal 
-        isOpen={isAddAccountOpen} 
-        onClose={() => { setIsAddAccountOpen(false); setEditingAccount(undefined); }} 
+      <AddAccountModal
+        isOpen={isAddAccountOpen}
+        onClose={() => { setIsAddAccountOpen(false); setEditingAccount(undefined); }}
         onAdd={addAccount}
         onUpdate={updateAccount}
         editingAccount={editingAccount}
       />
-      <AddAssetModal 
-        isOpen={isAddAssetOpen} 
-        onClose={() => { setIsAddAssetOpen(false); setEditingAsset(undefined); }} 
+      <AddAssetModal
+        isOpen={isAddAssetOpen}
+        onClose={() => { setIsAddAssetOpen(false); setEditingAsset(undefined); }}
         onAdd={addAsset}
         onUpdate={updateAsset}
         editingAsset={editingAsset}
-        accounts={accounts} 
+        accounts={accounts}
       />
       <TransactionModal
         isOpen={isTransactionModalOpen}
@@ -572,6 +641,8 @@ export function Dashboard() {
         onBulkImport={() => setIsBulkImportOpen(true)}
         onImportOtherAssets={() => setIsImportOtherOpen(true)}
         onClearAll={handleClearAllData}
+        clearProgress={clearProgress}
+        clearStatus={clearStatus}
         onClearMarketData={handleClearMarketData}
         onUpdateBackendUrl={handleUpdateBackendUrl}
         onSyncMarketPrices={handleSyncMarketPrices}

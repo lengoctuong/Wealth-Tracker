@@ -1,5 +1,5 @@
 
-let PYTHON_BACKEND_URL = "https://d352-14-161-20-81.ngrok-free.app";
+let PYTHON_BACKEND_URL = "http://localhost:8000";
 
 // Ngrok free tier requires this header to skip the browser warning page
 const fetchHeaders = {

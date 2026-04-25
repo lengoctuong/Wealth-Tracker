@@ -19,6 +19,8 @@ interface Props {
   onUpdateBackendUrl: (url: string) => Promise<void>;
   onSyncMarketPrices?: () => Promise<void>;
   isSyncingMarketPrices?: boolean;
+  clearProgress?: number;
+  clearStatus?: string;
 }
 
 export function SettingsModal({ 
@@ -32,7 +34,9 @@ export function SettingsModal({
   onClearMarketData,
   onUpdateBackendUrl,
   onSyncMarketPrices,
-  isSyncingMarketPrices
+  isSyncingMarketPrices,
+  clearProgress = 0,
+  clearStatus = ""
 }: Props) {
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [showConfirmClearMarketData, setShowConfirmClearMarketData] = useState(false);
@@ -90,12 +94,28 @@ export function SettingsModal({
               </p>
             </div>
             <div className="flex flex-col gap-2">
-              <Button variant="destructive" className="w-full" onClick={handleClearData}>
-                Tôi hiểu, hãy xóa toàn bộ dữ liệu hệ thống
+              <Button variant="destructive" className="w-full" onClick={handleClearData} disabled={clearProgress > 0}>
+                {clearProgress > 0 ? "Đang xử lý..." : "Tôi hiểu, hãy xóa toàn bộ dữ liệu hệ thống"}
               </Button>
-              <Button variant="ghost" className="w-full" onClick={() => setShowConfirmClear(false)}>
-                Hủy bỏ
-              </Button>
+              {clearProgress > 0 && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-between text-xs font-medium text-red-600">
+                    <span>{clearStatus}</span>
+                    <span>{Math.round(clearProgress)}%</span>
+                  </div>
+                  <div className="w-full bg-red-100 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-red-500 h-full transition-all duration-300" 
+                      style={{ width: `${clearProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {clearProgress === 0 && (
+                <Button variant="ghost" className="w-full" onClick={() => setShowConfirmClear(false)}>
+                  Hủy bỏ
+                </Button>
+              )}
             </div>
           </div>
         ) : showConfirmClearMarketData ? (

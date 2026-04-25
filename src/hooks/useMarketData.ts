@@ -94,15 +94,18 @@ export const useMarketData = (startDate?: string | null) => {
               value: h.value
             }));
             
-            // Check if DB data is reasonably fresh (within last 3 days to account for weekends)
+            // Check if DB data covers the required period
             const sortedHistory = [...history].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
             const latestDataStr = sortedHistory[sortedHistory.length - 1].timestamp;
+            const earliestDataStr = sortedHistory[0].timestamp;
+            
             const latestDataDate = new Date(latestDataStr);
             const now = new Date();
             const diffDays = (now.getTime() - latestDataDate.getTime()) / (1000 * 3600 * 24);
             
-            if (diffDays <= 3) {
-              needsNgrok = false; // We have fresh enough data in DB
+            // It's "fresh enough" ONLY if it's recent AND covers the required early date
+            if (diffDays <= 3 && earliestDataStr <= earliestDate) {
+              needsNgrok = false; 
             }
           }
         }

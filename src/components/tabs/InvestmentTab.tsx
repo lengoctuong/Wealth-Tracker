@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Button } from "../ui/button";
@@ -31,25 +31,35 @@ interface Props {
   onOpenTransactions: (asset: Asset) => void;
 }
 
-export function InvestmentTab({ 
-  type, 
-  title, 
-  accounts, 
-  assets, 
-  history, 
-  vnIndexHistory, 
+export function InvestmentTab({
+  type,
+  title,
+  accounts,
+  assets,
+  history,
+  vnIndexHistory,
   investmentTransactions,
   usdtRate = 25500,
   showValues = true,
-  onDeleteAsset, 
+  onDeleteAsset,
   onDeleteAccount,
   onEditAsset,
   onEditAccount,
   onOpenTransactions
 }: Props) {
-  const [deleteAccountInfo, setDeleteAccountInfo] = useState<{id: string, name: string} | null>(null);
-  const [deleteAssetInfo, setDeleteAssetInfo] = useState<{id: string, name: string} | null>(null);
+  const [deleteAccountInfo, setDeleteAccountInfo] = useState<{ id: string, name: string } | null>(null);
+  const [deleteAssetInfo, setDeleteAssetInfo] = useState<{ id: string, name: string } | null>(null);
   const [timeRanges, setTimeRanges] = useState<Record<string, string>>({});
+
+  // Pre-group history by accountId to avoid repeated filtering in the render loop
+  const historyByAccount = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    history.forEach(h => {
+      if (!groups[h.accountId]) groups[h.accountId] = [];
+      groups[h.accountId].push(h);
+    });
+    return groups;
+  }, [history]);
 
   const filteredAccounts = accounts.filter(a => a.type === type || (type === 'crypto' && a.type === 'polymarket'));
 
@@ -67,45 +77,46 @@ export function InvestmentTab({
 
   const getChartData = (accountId: string, timeRange: string) => {
     const historyByDate: Record<string, any> = {};
-    
+
     // Process VNIndex history first to establish timeline
     vnIndexHistory.forEach(item => {
       historyByDate[item.date] = { date: item.date, value: null, vnIndex: item.price };
     });
-    
+
     const tradingDates = new Set(vnIndexHistory.map(item => item.date));
-    
+
     const cashFlowByDate: Record<string, number> = {};
     investmentTransactions.forEach(tx => {
       const asset = assets.find(a => a.id === tx.assetId);
       if (!asset || asset.accountId !== accountId) return;
-      
+
       let targetDate = tx.date;
       if (!tradingDates.has(targetDate)) {
         const sortedDates = Array.from(tradingDates).sort();
         const nextDate = sortedDates.find(d => d > targetDate);
         if (nextDate) targetDate = nextDate;
       }
-      
+
       const rate = ['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? (usdtRate || 1) : 1;
       const amount = tx.quantity * tx.price * rate;
-      
+
       if (!cashFlowByDate[targetDate]) cashFlowByDate[targetDate] = 0;
-      
+
       if (tx.type === 'buy') {
         cashFlowByDate[targetDate] += amount;
       } else if (tx.type === 'sell') {
         cashFlowByDate[targetDate] -= amount;
       }
     });
-    
-    // Add asset history
-    history.filter(h => h.accountId === accountId).forEach(h => {
+
+    // Add asset history using pre-grouped data
+    const accountHistory = historyByAccount[accountId] || [];
+    accountHistory.forEach(h => {
       // Skip weekends
       const date = new Date(h.date);
       const day = date.getDay();
       if (day === 0 || day === 6) return;
-      
+
       // Only show days that Python API returns (trading days)
       if (!tradingDates.has(h.date)) return;
 
@@ -117,7 +128,7 @@ export function InvestmentTab({
       }
       historyByDate[h.date].value += h.totalValue;
     });
-    
+
     let lastVnIndex = 0;
     let lastValue = 0;
     let sortedData = Object.values(historyByDate)
@@ -131,7 +142,7 @@ export function InvestmentTab({
         }
         return { ...d, vnIndex: d.vnIndex > 0 ? d.vnIndex : lastVnIndex };
       });
-    
+
     // If the first entries are still 0, try to fill backward from the first non-zero
     const firstNonZeroVnIndex = sortedData.find(d => d.vnIndex > 0)?.vnIndex || 0;
     if (firstNonZeroVnIndex > 0) {
@@ -140,7 +151,7 @@ export function InvestmentTab({
         vnIndex: d.vnIndex > 0 ? d.vnIndex : firstNonZeroVnIndex
       }));
     }
-    
+
     // Filter to only show data from the first day the account has value
     const firstDataIndex = sortedData.findIndex(d => d.value > 0);
     let displayData = firstDataIndex !== -1 ? sortedData.slice(firstDataIndex) : sortedData;
@@ -156,19 +167,19 @@ export function InvestmentTab({
         displayData = displayData.slice(startIndex);
       }
     }
-    
+
     // Calculate percentage change using TWRR
     if (displayData.length > 0) {
       const baseVnIndex = displayData[0].vnIndex || 1;
       let cumulativeReturn = 1;
-      
+
       displayData.forEach((d, i) => {
         if (i === 0) {
           d.valuePct = 0;
         } else {
-          const prev = displayData[i-1];
+          const prev = displayData[i - 1];
           const cashFlow = cashFlowByDate[d.date] || 0;
-          
+
           if (prev.value !== null && prev.value > 0) {
             const periodReturn = (d.value! - cashFlow - prev.value) / prev.value;
             cumulativeReturn *= (1 + periodReturn);
@@ -180,8 +191,6 @@ export function InvestmentTab({
               cumulativeReturn: cumulativeReturn
             };
           } else if (prev.value === 0 && d.value! > 0 && cashFlow > 0) {
-            // Handle case where account was empty and new funds are added
-            // The return for this specific period is 0 (just a deposit), but we start tracking again
             d.twrrDetails = {
               vPrev: 0,
               vCurr: d.value,
@@ -202,8 +211,22 @@ export function InvestmentTab({
         }
         d.vnIndexPct = baseVnIndex > 0 ? ((d.vnIndex - baseVnIndex) / baseVnIndex) * 100 : 0;
       });
+
+      // DOWNSAMPLING: If there are too many points, sample them to save memory/CPU
+      if (displayData.length > 500) {
+        const step = Math.ceil(displayData.length / 300); // Target ~300 points
+        const sampled = [];
+        for (let i = 0; i < displayData.length; i += step) {
+          sampled.push(displayData[i]);
+        }
+        // Always include the last point
+        if ((displayData.length - 1) % step !== 0) {
+          sampled.push(displayData[displayData.length - 1]);
+        }
+        displayData = sampled;
+      }
     }
-    
+
     return displayData;
   };
 
@@ -217,20 +240,20 @@ export function InvestmentTab({
         const accountAssets = assets.filter(a => {
           if (a.accountId !== account.id) return false;
           if (a.isFinished) return false;
-          
+
           // Các loại tài sản đầu tư cần ẩn khi đã bán hết (quantity = 0)
           const isTradeable = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(a.category);
-          
+
           if (isTradeable) {
             return (a.quantity || 0) > 0;
           }
-          
+
           // Các loại tài sản khác (tiền mặt, tiết kiệm, vàng, ...) luôn hiển thị
           return true;
         });
         const timeRange = timeRanges[account.id] || '30d';
         const chartData = getChartData(account.id, timeRange);
-        
+
         let totalValue = 0;
         let investedValue = 0;
         let investedPurchaseValue = 0;
@@ -238,7 +261,7 @@ export function InvestmentTab({
         accountAssets.forEach(asset => {
           const val = getAssetValue(asset, usdtRate);
           totalValue += val;
-          
+
           const isInvestable = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(asset.category);
           if (isInvestable) {
             investedValue += val;
@@ -248,7 +271,7 @@ export function InvestmentTab({
 
         // Calculate growth based on current invested holdings only (unrealized P/L)
         const totalGrowth = investedPurchaseValue > 0 ? ((investedValue - investedPurchaseValue) / investedPurchaseValue) * 100 : 0;
-        
+
         return (
           <Card key={account.id} className="border-none shadow-md overflow-hidden">
             <CardHeader className="bg-gray-50 border-b border-gray-100 flex flex-row items-center justify-between py-4">
@@ -257,9 +280,14 @@ export function InvestmentTab({
                 <div className="flex items-center gap-2 mt-1">
                   <p className="text-sm text-gray-500">Tổng: <span className="font-semibold text-primary">{showValues ? formatCurrency(totalValue, 'VND') : "****"}</span></p>
                   {totalGrowth !== 0 && (
-                    <Badge variant="outline" className={totalGrowth >= 0 ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}>
-                      {totalGrowth >= 0 ? "+" : ""}{totalGrowth.toFixed(2)}%
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className={totalGrowth >= 0 ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}>
+                        {totalGrowth >= 0 ? "+" : ""}{totalGrowth.toFixed(2)}%
+                      </Badge>
+                      <span className={`text-[11px] font-bold ${totalGrowth >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        ({totalGrowth >= 0 ? "+" : ""}{formatCurrency(investedValue - investedPurchaseValue, 'VND')})
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -280,20 +308,20 @@ export function InvestmentTab({
                     <h3 className="text-sm font-medium text-gray-500">Hiệu suất vs VN-Index (%)</h3>
                     <div className="flex gap-1">
                       {['7d', '30d', '3m', '6m', '1y', '3y', '5y', 'all'].map((range) => (
-                        <Button 
+                        <Button
                           key={range}
-                          variant={timeRange === range ? 'default' : 'outline'} 
-                          size="sm" 
-                          className="h-7 text-[10px] px-1.5" 
+                          variant={timeRange === range ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-[10px] px-1.5"
                           onClick={() => setTimeRanges(prev => ({ ...prev, [account.id]: range }))}
                         >
-                          {range === '7d' ? '1W' : 
-                           range === '30d' ? '1M' : 
-                           range === '3m' ? '3M' :
-                           range === '6m' ? '6M' :
-                           range === '1y' ? '1Y' :
-                           range === '3y' ? '3Y' :
-                           range === '5y' ? '5Y' : 'Tất cả'}
+                          {range === '7d' ? '1W' :
+                            range === '30d' ? '1M' :
+                              range === '3m' ? '3M' :
+                                range === '6m' ? '6M' :
+                                  range === '1y' ? '1Y' :
+                                    range === '3y' ? '3Y' :
+                                      range === '5y' ? '5Y' : 'Tất cả'}
                         </Button>
                       ))}
                     </div>
@@ -305,7 +333,7 @@ export function InvestmentTab({
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                           <XAxis dataKey="date" tickFormatter={(val) => format(new Date(val), 'dd/MM')} stroke="#6b7280" fontSize={12} />
                           <YAxis tickFormatter={(val) => `${val.toFixed(1)}%`} stroke="#6b7280" fontSize={12} />
-                          <RechartsTooltip 
+                          <RechartsTooltip
                             content={({ active, payload, label }) => {
                               if (active && payload && payload.length) {
                                 return (
@@ -323,7 +351,7 @@ export function InvestmentTab({
                                           </span>
                                         </div>
                                         <div className="pl-4 text-gray-400">
-                                          Giá trị: {entry.name === 'valuePct' 
+                                          Giá trị: {entry.name === 'valuePct'
                                             ? (showValues ? formatCurrency(entry.payload.value) : "****")
                                             : entry.payload.vnIndex.toLocaleString()}
                                         </div>
@@ -380,9 +408,9 @@ export function InvestmentTab({
                           accountAssets.map(asset => {
                             const isInvest = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(asset.category);
                             const isSimpleAsset = ["usdt", "bot", "position", "usdc"].includes(asset.category);
-                            
+
                             const totalValueVnd = getAssetValue(asset, usdtRate);
-                            
+
                             const purchasePrice = asset.purchasePrice || asset.currentPrice || 0;
                             const growth = purchasePrice > 0 ? ((asset.currentPrice || 0) - purchasePrice) / purchasePrice * 100 : 0;
 
@@ -432,11 +460,16 @@ export function InvestmentTab({
                                     </div>
                                   ) : '-'}
                                 </TableCell>
-                                <TableCell className="text-right text-sm">
+                                 <TableCell className="text-right text-sm">
                                   {isInvest && !isSimpleAsset && purchasePrice > 0 ? (
-                                    <span className={growth >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                                      {growth >= 0 ? "+" : ""}{growth.toFixed(2)}%
-                                    </span>
+                                    <div className="flex flex-col items-end">
+                                      <span className={growth >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                                        {growth >= 0 ? "+" : ""}{growth.toFixed(2)}%
+                                      </span>
+                                      <span className={`text-[10px] ${growth >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                        {growth >= 0 ? "+" : ""}{showValues ? formatCurrency(((asset.currentPrice || 0) - purchasePrice) * (asset.quantity || 0), asset.currency) : "****"}
+                                      </span>
+                                    </div>
                                   ) : '-'}
                                 </TableCell>
                                 <TableCell className="text-right font-semibold text-primary text-sm">{showValues ? formatCurrency(totalValueVnd, 'VND') : "****"}</TableCell>
@@ -472,7 +505,7 @@ export function InvestmentTab({
                   CÔNG CỤ DEBUG: CHI TIẾT TÍNH TOÁN TWRR ({account.name})
                   <span className="text-[10px] font-normal opacity-60 group-open:hidden">(Click để xem chi tiết công thức và bảng tính)</span>
                 </summary>
-                
+
                 <div className="mt-4 p-6 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner overflow-x-auto">
                   <div className="mb-6 p-4 bg-white rounded-xl border border-blue-100 text-xs text-slate-600 leading-relaxed">
                     <p className="font-bold text-blue-700 mb-2">Công thức tính TWRR:</p>
@@ -539,7 +572,7 @@ export function InvestmentTab({
                   CÔNG CỤ DEBUG: LỊCH SỬ GIAO DỊCH ({account.name})
                   <span className="text-[10px] font-normal opacity-60 group-open:hidden">(Click để xem chi tiết các lệnh mua/bán)</span>
                 </summary>
-                
+
                 <div className="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-inner overflow-x-auto">
                   <Table>
                     <TableHeader>

@@ -135,10 +135,12 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
     }
   };
 
-  const backfillHistory = async (investmentTransactions: InvestmentTransaction[]) => {
+  const backfillHistory = async (investmentTransactions: InvestmentTransaction[], providedAssets?: Asset[]) => {
     if (!user || investmentTransactions.length === 0) return;
     setIsBackfilling(true);
     setBackfillProgress(0);
+
+    const assetsToUse = providedAssets || assets;
 
     try {
       // 1. Find the earliest transaction date
@@ -152,7 +154,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
       let processedDays = 0;
 
       // 2. Fetch historical prices from DB for all symbols and VN-Index
-      const tickers = Array.from(new Set(assets.filter(a => a.symbol).map(a => a.symbol!)));
+      const tickers = Array.from(new Set(assetsToUse.filter(a => a.symbol).map(a => a.symbol!)));
       const priceHistoryMap: Record<string, PriceResult[]> = {};
       let vnIndexHistory: PriceResult[] | null = null;
       
@@ -227,7 +229,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
         
         // Calculate quantity and cost for each asset
         txsToDate.forEach(tx => {
-          const asset = assets.find(a => a.id === tx.assetId);
+          const asset = assetsToUse.find(a => a.id === tx.assetId);
           if (!asset) return;
           
           if (!holdings[tx.assetId]) {
@@ -249,7 +251,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
         investmentTransactions
           .filter(tx => tx.type === 'sell' && tx.date === dateStr)
           .forEach(tx => {
-            const asset = assets.find(a => a.id === tx.assetId);
+            const asset = assetsToUse.find(a => a.id === tx.assetId);
             if (!asset) return;
             
             // Find avg price before this transaction
@@ -283,7 +285,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
         // Initialize accountData for all accounts that have transactions up to this date
         const activeAccounts = new Set<string>();
         txsToDate.forEach(tx => {
-          const asset = assets.find(a => a.id === tx.assetId);
+          const asset = assetsToUse.find(a => a.id === tx.assetId);
           if (asset) activeAccounts.add(asset.accountId);
         });
         
