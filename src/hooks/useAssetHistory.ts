@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, addDoc, doc, getDocs, writeBatch } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, doc, getDocs, getDoc, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { handleFirestoreError, OperationType } from "../utils/firestoreErrorHandler";
@@ -151,28 +151,33 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
       const totalDays = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
       let processedDays = 0;
 
-      // 2. Fetch historical prices for all assets and VN-Index
+      // 2. Fetch historical prices from DB for all symbols and VN-Index
       const tickers = Array.from(new Set(assets.filter(a => a.symbol).map(a => a.symbol!)));
       const priceHistoryMap: Record<string, PriceResult[]> = {};
+      let vnIndexHistory: PriceResult[] | null = null;
       
-      // Fetch VN-Index history
-      const vnIndexHistory = await marketService.getStockHistory("VNINDEX", startDateStr);
-      
-      for (const ticker of tickers) {
-        const asset = assets.find(a => a.symbol === ticker);
-        if (!asset) continue;
-        
-        let history: PriceResult[] | null = null;
-        if (asset.category === 'stock' || asset.category === 'etf') {
-          history = await marketService.getStockHistory(ticker, startDateStr);
-        } else if (asset.category === 'fund') {
-          history = await marketService.getFundHistory(ticker, startDateStr);
-        } else if (asset.category === 'crypto' || asset.category === 'coin') {
-          history = await marketService.getCryptoHistory(ticker, startDateStr);
+      const vnSnap = await getDoc(doc(db, "marketData", "VNINDEX"));
+      if (vnSnap.exists()) {
+        const data = vnSnap.data();
+        if (data && data.history) {
+           vnIndexHistory = data.history.map((h: any) => ({
+             timestamp: h.timestamp + "T00:00:00",
+             value: h.value
+           }));
         }
-        
-        if (history) {
-          priceHistoryMap[ticker] = history;
+      }
+
+      for (const ticker of tickers) {
+        if (!ticker) continue;
+        const snap = await getDoc(doc(db, "marketData", ticker));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data && data.history) {
+            priceHistoryMap[ticker] = data.history.map((h: any) => ({
+              timestamp: h.timestamp + "T00:00:00",
+              value: h.value
+            }));
+          }
         }
       }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { useAccounts, AccountType, Account } from "../hooks/useAccounts";
@@ -44,7 +44,7 @@ export function Dashboard() {
     }, investmentTransactions[0].date);
   }, [investmentTransactions]);
 
-  const { vnIndex: marketVnIndex, vnIndexHistory } = useMarketData(earliestTransactionDate);
+  const { vnIndex: marketVnIndex, vnIndexHistory, syncMarketPrices, isSyncingMarketData } = useMarketData(earliestTransactionDate);
   const [manualVnIndex, setManualVnIndex] = useState<number | null>(null);
   const vnIndex = manualVnIndex !== null ? { price: manualVnIndex, change: 0, changePercent: 0, date: new Date().toISOString() } : marketVnIndex;
   const [usdtRate, setUsdtRate] = useState(25500);
@@ -59,8 +59,6 @@ export function Dashboard() {
   const [editingAccount, setEditingAccount] = useState<Account | undefined>(undefined);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>(undefined);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [refreshingPrices, setRefreshingPrices] = useState(false);
-  const [updateProgress, setUpdateProgress] = useState(0);
   const [isEditingVnIndex, setIsEditingVnIndex] = useState(false);
   const [tempVnIndex, setTempVnIndex] = useState("");
   const [isEditingUsdt, setIsEditingUsdt] = useState(false);
@@ -112,91 +110,6 @@ export function Dashboard() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const handleRefreshPrices = async () => {
-    setRefreshingPrices(true);
-    setUpdateProgress(0);
-    let updatedCount = 0;
-    const failedSymbols: string[] = [];
-    const successSymbols: string[] = [];
-    
-    const assetsToUpdate = assets.filter(a => a.symbol);
-    const total = assetsToUpdate.length;
-    
-    if (total === 0) {
-      setRefreshingPrices(false);
-      toast.info("Không có tài sản nào có mã (symbol) để cập nhật giá.");
-      return;
-    }
-
-    // Current date for freshness check
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    // Format YYYY-MM-DD for API start parameter (optional optimization)
-    const startDate = oneWeekAgo.toISOString().split('T')[0];
-
-    try {
-      for (let i = 0; i < assetsToUpdate.length; i++) {
-        const asset = assetsToUpdate[i];
-        const symbol = asset.symbol!.toUpperCase();
-        let result: { value: number, timestamp: string } | null = null;
-
-        try {
-          if (asset.category === 'stock' || asset.category === 'etf') {
-            result = await marketService.getStockPrice(symbol, startDate);
-          } else if (asset.category === 'fund') {
-            result = await marketService.getFundPrice(symbol, startDate);
-          } else if (asset.category === 'coin' || asset.category === 'crypto') {
-            const ticker = symbol.includes('-') ? symbol : `${symbol}-USD`;
-            result = await marketService.getCryptoPrice(ticker, startDate);
-          } else if (asset.category === 'gold') {
-            result = await marketService.getGoldPrice(symbol.toLowerCase() || 'sjc', 'sell', startDate);
-          }
-
-          if (result) {
-            const dataDate = new Date(result.timestamp);
-            // If data is older than 1 week, consider it as no data
-            if (dataDate < oneWeekAgo) {
-              console.warn(`Data for ${symbol} is too old: ${result.timestamp}`);
-              failedSymbols.push(symbol);
-            } else {
-              if (result.value !== asset.currentPrice) {
-                await updateAsset(asset.id, { currentPrice: result.value });
-                updatedCount++;
-              }
-              successSymbols.push(symbol);
-            }
-          } else {
-            failedSymbols.push(symbol);
-          }
-        } catch (err) {
-          console.error(`Failed to update ${symbol}`, err);
-          failedSymbols.push(symbol);
-        }
-        
-        setUpdateProgress(Math.round(((i + 1) / total) * 100));
-      }
-      
-      if (failedSymbols.length > 0) {
-        toast.warning(
-          <div>
-            <p className="font-bold">Cập nhật hoàn tất với một số lỗi:</p>
-            <p>Thành công: {updatedCount} ({successSymbols.join(', ')})</p>
-            <p>Thất bại: {failedSymbols.length} ({failedSymbols.join(', ')})</p>
-          </div>,
-          { duration: 5000 }
-        );
-      } else {
-        toast.success(`Đã cập nhật giá thành công cho ${updatedCount} tài sản.`);
-      }
-    } catch (error) {
-      console.error("Refresh prices failed", error);
-      toast.error("Lỗi khi cập nhật giá tài sản");
-    } finally {
-      setRefreshingPrices(false);
-      setUpdateProgress(0);
-    }
-  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -252,6 +165,72 @@ export function Dashboard() {
     }
   };
 
+  const handleClearMarketData = async () => {
+    try {
+      const snap = await getDocs(collection(db, "marketData"));
+      const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deletePromises);
+      toast.success("Đã xóa dữ liệu lịch sử giá thành công!");
+    } catch (error) {
+      console.error("Clear market data failed", error);
+      toast.error("Lỗi khi xóa dữ liệu lịch sử giá!");
+    }
+  };
+
+  const handleSyncMarketPrices = async (assetsToSync?: Asset[]) => {
+    // Use provided assets or fall back to current state
+    const assetsSource = assetsToSync || rawAssets;
+    
+    // Default to 5 years ago if no transactions
+    let startDateToSync = earliestTransactionDate;
+    if (!startDateToSync) {
+      const fiveYearsAgo = new Date();
+      fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+      startDateToSync = fiveYearsAgo.toISOString().split('T')[0];
+    }
+    
+    // Collect all valid symbols
+    const validAssets = assetsSource.filter(a => a.symbol && !a.isFinished);
+    
+    const symbolsToSync: { symbol: string, type: string }[] = [{ symbol: 'VNINDEX', type: 'stock' }];
+    const seenSymbols = new Set<string>();
+
+    validAssets.forEach(asset => {
+      if (asset.symbol && !seenSymbols.has(asset.symbol)) {
+        seenSymbols.add(asset.symbol);
+        let type = 'stock';
+        if (asset.category === 'fund') type = 'fund';
+        else if (asset.category === 'coin' || asset.category === 'crypto' || asset.category === 'usdt') type = 'crypto';
+        
+        symbolsToSync.push({ symbol: asset.symbol, type });
+      }
+    });
+
+    if (symbolsToSync.length === 0) {
+      toast.info("Không có mã tài sản nào cần đồng bộ.");
+      return;
+    }
+
+    const results = await syncMarketPrices(symbolsToSync, startDateToSync);
+    if (results) {
+      let updateCount = 0;
+      for (const asset of validAssets) {
+        if (asset.symbol && results[asset.symbol] !== undefined) {
+          const latestPrice = results[asset.symbol];
+          if (asset.currentPrice !== latestPrice) {
+            await updateAsset(asset.id, { currentPrice: latestPrice });
+            updateCount++;
+          }
+        }
+      }
+      toast.success(`Đã đồng bộ giá thị trường thành công! ${updateCount > 0 ? `Đã cập nhật Giá HT cho ${updateCount} tài sản.` : ''}`);
+      return results;
+    } else {
+      toast.error("Kết thúc đồng bộ với một số lỗi. Hãy xem lại console hoặc thử lại sau.");
+      return null;
+    }
+  };
+
   const handleDeleteAccount = async (id: string) => {
     try {
       // Delete all assets in this account first
@@ -280,16 +259,17 @@ export function Dashboard() {
 
   const handleSyncHistory = async () => {
     try {
-      // 1. Refresh prices first
-      await handleRefreshPrices();
-      
-      // 2. Rebuild FIFO layers for all transactions
+      // 0. Automatically sync market prices first to get latest "Giá hiện tại"
+      toast.info("Đang cập nhật giá thị trường mới nhất...");
+      await handleSyncMarketPrices();
+
+      // 1. Rebuild FIFO layers for all transactions
       await rebuildFIFOLayers();
       
-      // 3. Then backfill history
+      // 2. Then backfill history based on prices in DB
       await backfillHistory(investmentTransactions);
       
-      toast.success("Đã đồng bộ lịch sử và cập nhật giá thành công!");
+      toast.success("Đã đồng bộ lịch sử thành công!");
     } catch (error) {
       console.error("Sync history failed", error);
       toast.error("Lỗi khi đồng bộ lịch sử!");
@@ -420,10 +400,6 @@ export function Dashboard() {
                   Đang đồng bộ lịch sử ({backfillProgress}%)
                 </div>
               )}
-              <Button onClick={handleRefreshPrices} variant="outline" size="sm" disabled={refreshingPrices || isBackfilling}>
-                <RefreshCw className={`w-4 h-4 mr-2 ${refreshingPrices ? 'animate-spin' : ''}`} /> 
-                {refreshingPrices ? `Đang cập nhật (${updateProgress}%)` : 'Làm mới giá'}
-              </Button>
               <Button onClick={() => setIsAddAccountOpen(true)} variant="outline" size="sm">
                 <Plus className="w-4 h-4 mr-2" /> Nguồn
               </Button>
@@ -441,7 +417,7 @@ export function Dashboard() {
               vnIndexHistory={vnIndexHistory} 
               vnIndex={vnIndex} 
               investmentTransactions={investmentTransactions}
-              isBackfilling={isBackfilling || refreshingPrices}
+              isBackfilling={isBackfilling}
               onBackfill={handleSyncHistory}
               usdtRate={usdtRate} 
               showValues={showValues} 
@@ -579,6 +555,10 @@ export function Dashboard() {
       <BulkImportModal
         isOpen={isBulkImportOpen}
         onClose={() => setIsBulkImportOpen(false)}
+        onSyncMarketPrices={async (importedAssets) => {
+          await handleSyncMarketPrices(importedAssets);
+          await handleSyncHistory();
+        }}
       />
       <ImportOtherAssetsModal
         isOpen={isImportOtherOpen}
@@ -592,7 +572,10 @@ export function Dashboard() {
         onBulkImport={() => setIsBulkImportOpen(true)}
         onImportOtherAssets={() => setIsImportOtherOpen(true)}
         onClearAll={handleClearAllData}
+        onClearMarketData={handleClearMarketData}
         onUpdateBackendUrl={handleUpdateBackendUrl}
+        onSyncMarketPrices={handleSyncMarketPrices}
+        isSyncingMarketPrices={isSyncingMarketData}
       />
     </div>
   );

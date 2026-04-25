@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { marketService } from "../services/marketService";
+import { doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
+import { marketService, PriceResult } from "../services/marketService";
 
 export interface MarketData {
   price: number;
@@ -17,74 +19,141 @@ export const useMarketData = (startDate?: string | null) => {
   const [vnIndex, setVnIndex] = useState<MarketData | null>(null);
   const [vnIndexHistory, setVnIndexHistory] = useState<MarketHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncingMarketData, setIsSyncingMarketData] = useState(false);
 
   useEffect(() => {
-    const fetchMarketData = async () => {
+    const unsub = onSnapshot(doc(db, "marketData", "VNINDEX"), (docSnap) => {
       try {
-        const backendUrl = marketService.getBackendUrl();
-        
-        // Use provided startDate or default to 30 days ago
-        let fetchStartDate = startDate;
-        if (!fetchStartDate) {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          fetchStartDate = thirtyDaysAgo.toISOString().split('T')[0];
-        }
+        if (docSnap.exists()) {
+          const dbData = docSnap.data();
+          if (dbData && dbData.history && dbData.history.length > 0) {
+            // Sort history to make sure it's chronological
+            const sortedHistory = [...dbData.history].sort((a: any, b: any) => 
+               a.timestamp.localeCompare(b.timestamp)
+            );
 
-        // Format yyyy-mm-dd to dd-mm-yyyy for Python backend
-        const [y, m, d] = fetchStartDate.split('-');
-        const formattedStartDate = `${d}-${m}-${y}`;
-
-        const historyRes = await fetch(
-          `${backendUrl}/api/vnstock?ticker=VNINDEX&start=${formattedStartDate}`,
-          {
-            headers: {
-              "ngrok-skip-browser-warning": "true",
-              "Accept": "application/json",
-            }
-          }
-        );
-        
-        if (historyRes.ok) {
-          const data: any[] = await historyRes.json();
-          // Filter out 0 values (weekends or errors) and also filter out weekends (Sat, Sun)
-          const validData = data.filter(d => {
-            const date = new Date(d.timestamp);
-            const day = date.getDay();
-            return d.value > 0 && day !== 0 && day !== 6; // 0 is Sunday, 6 is Saturday
-          });
-          
-          if (validData && validData.length > 0) {
-            const latest = validData[validData.length - 1];
-            const previous = validData.length > 1 ? validData[validData.length - 2] : latest;
-            const change = latest.value - previous.value;
-            const changePercent = (change / previous.value) * 100;
-
-            setVnIndex({
-              price: latest.value,
-              change: Number(change.toFixed(2)),
-              changePercent: Number(changePercent.toFixed(2)),
-              date: latest.timestamp.split('T')[0]
+            // Filter out 0 values and weekends
+            const validData = sortedHistory.filter(d => {
+               // Append T00:00:00 to keep local time timezone bugs away if parsing
+               const date = new Date(d.timestamp + "T00:00:00");
+               const day = date.getDay();
+               return d.value > 0 && day !== 0 && day !== 6; 
             });
 
-            setVnIndexHistory(validData.map(d => ({
-              date: d.timestamp.split('T')[0],
-              price: d.value
-            })));
+            if (validData.length > 0) {
+              const latest = validData[validData.length - 1];
+              const previous = validData.length > 1 ? validData[validData.length - 2] : latest;
+              const change = latest.value - previous.value;
+              const changePercent = previous.value !== 0 ? (change / previous.value) * 100 : 0;
+
+              setVnIndex({
+                price: latest.value,
+                change: Number(change.toFixed(2)),
+                changePercent: Number(changePercent.toFixed(2)),
+                date: latest.timestamp
+              });
+
+              setVnIndexHistory(validData.map(d => ({
+                date: d.timestamp,
+                price: d.value
+              })));
+            }
           }
         }
       } catch (error) {
-        console.error("Failed to fetch market data from Python backend", error);
+        console.error("Failed to parse VNINDEX from DB", error);
       } finally {
         setLoading(false);
       }
-    };
+    }, (error) => {
+      console.error("Error listening to VNINDEX:", error);
+      setLoading(false);
+    });
 
-    fetchMarketData();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchMarketData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [startDate]);
+    return () => unsub();
+  }, [startDate]); // startDate here might not even be strictly needed for filtering if we just show all DB history, but we can keep it in dependency array or use it to slice.
 
-  return { vnIndex, vnIndexHistory, loading };
+
+  const syncMarketPrices = async (symbols: { symbol: string, type: string }[], earliestDate: string) => {
+    setIsSyncingMarketData(true);
+    try {
+      const latestPrices: Record<string, number> = {};
+      const resultsToSave: { ticker: string, history: PriceResult[] }[] = [];
+
+      const fetchSymbol = async ({ symbol, type }: { symbol: string, type: string }) => {
+        let history: PriceResult[] | null = null;
+        let needsNgrok = true;
+
+        // Try getting from DB first
+        const docSnap = await getDoc(doc(db, "marketData", symbol));
+        if (docSnap.exists()) {
+          const dbData = docSnap.data();
+          if (dbData && dbData.history && dbData.history.length > 0) {
+            history = dbData.history.map((h: any) => ({
+              timestamp: h.timestamp + "T00:00:00",
+              value: h.value
+            }));
+            
+            // Check if DB data is reasonably fresh (within last 3 days to account for weekends)
+            const sortedHistory = [...history].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
+            const latestDataStr = sortedHistory[sortedHistory.length - 1].timestamp;
+            const latestDataDate = new Date(latestDataStr);
+            const now = new Date();
+            const diffDays = (now.getTime() - latestDataDate.getTime()) / (1000 * 3600 * 24);
+            
+            if (diffDays <= 3) {
+              needsNgrok = false; // We have fresh enough data in DB
+            }
+          }
+        }
+
+        if (needsNgrok) {
+          if (type === 'crypto') {
+            history = await marketService.getCryptoHistory(symbol, earliestDate);
+          } else if (type === 'fund') {
+            history = await marketService.getFundHistory(symbol, earliestDate);
+          } else {
+            history = await marketService.getStockHistory(symbol, earliestDate);
+          }
+          
+          if (history && history.length > 0) {
+            resultsToSave.push({ ticker: symbol, history });
+          }
+        }
+        
+        if (history && history.length > 0) {
+          // Find latest price
+          const sortedHistory = [...history].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
+          latestPrices[symbol] = sortedHistory[sortedHistory.length - 1].value;
+        }
+      };
+
+      const chunkSize = 5;
+      for (let i = 0; i < symbols.length; i += chunkSize) {
+        const chunk = symbols.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(fetchSymbol));
+      }
+
+      // Save new ngrok fetches to Firebase
+      for (const res of resultsToSave) {
+        await setDoc(doc(db, "marketData", res.ticker), {
+          ticker: res.ticker,
+          history: res.history.map(h => ({
+            timestamp: h.timestamp.split('T')[0],
+            value: h.value
+          })),
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      return latestPrices;
+    } catch (error) {
+      console.error("Failed to sync market prices", error);
+      return null;
+    } finally {
+      setIsSyncingMarketData(false);
+    }
+  };
+
+  return { vnIndex, vnIndexHistory, loading, syncMarketPrices, isSyncingMarketData };
 };

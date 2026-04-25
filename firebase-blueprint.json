@@ -98,6 +98,26 @@
         "usdtRate": { "type": "number" },
         "vnIndexPrice": { "type": "number" }
       }
+    },
+    "MarketData": {
+      "title": "Market Data",
+      "description": "Historical price data for assets to cache API responses",
+      "type": "object",
+      "properties": {
+        "ticker": { "type": "string" },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "timestamp": { "type": "string" },
+              "value": { "type": "number" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticker", "history", "updatedAt"]
     }
   },
   "firestore": {
@@ -107,6 +127,7 @@
     "/assetHistory/{historyId}": { "schema": { "$ref": "#/entities/AssetHistory" }, "description": "Stores daily snapshots" },
     "/settings/{userId}": { "schema": { "$ref": "#/entities/Settings" }, "description": "Stores user specific settings" },
     "/transactions/{transactionId}": { "schema": { "$ref": "#/entities/Transaction" }, "description": "Stores financial transactions" },
-    "/investment_transactions/{txId}": { "schema": { "$ref": "#/entities/InvestmentTransaction" }, "description": "Stores investment transactions" }
+    "/investment_transactions/{txId}": { "schema": { "$ref": "#/entities/InvestmentTransaction" }, "description": "Stores investment transactions" },
+    "/marketData/{ticker}": { "schema": { "$ref": "#/entities/MarketData" }, "description": "Stores global historical market data" }
   }
 }

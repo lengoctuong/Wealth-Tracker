@@ -6,12 +6,13 @@ import { Label } from "./ui/label";
 import { toast } from "sonner";
 import { FileJson, Upload, Download, Loader2, AlertCircle } from "lucide-react";
 import { useAccounts } from "../hooks/useAccounts";
-import { useAssets } from "../hooks/useAssets";
+import { Asset, useAssets } from "../hooks/useAssets";
 import { useInvestmentTransactions } from "../hooks/useTransactions";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onSyncMarketPrices?: (importedAssets?: Asset[]) => Promise<void>;
 }
 
 interface ImportTransaction {
@@ -31,7 +32,7 @@ interface ImportAsset {
   transactions: ImportTransaction[];
 }
 
-export function BulkImportModal({ isOpen, onClose }: Props) {
+export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) {
   const [jsonInput, setJsonInput] = useState("");
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +45,7 @@ export function BulkImportModal({ isOpen, onClose }: Props) {
     setLoading(true);
     let successCount = 0;
     let errorCount = 0;
+    const importedAssets: Asset[] = [];
     
     // Filter only investment assets
     const data = rawData.filter(item => 
@@ -98,11 +100,15 @@ export function BulkImportModal({ isOpen, onClose }: Props) {
 
           if (!assetId) {
             assetId = await addAsset(assetData);
+            if (assetId) {
+              importedAssets.push({ id: assetId, ...assetData } as Asset);
+            }
           } else {
             await updateAsset(assetId, {
               currentPrice: lastPrice,
               name: item.assetName,
             });
+            importedAssets.push({ id: assetId, ...assetData, currentPrice: lastPrice, name: item.assetName } as Asset);
           }
 
           // 4. Add all transactions (FIFO logic is inside addInvestmentTransaction)
@@ -128,6 +134,12 @@ export function BulkImportModal({ isOpen, onClose }: Props) {
       }
 
       toast.success(`Đã nhập thành công ${successCount} tài sản. ${errorCount > 0 ? `Có ${errorCount} lỗi.` : ""}`);
+      
+      if (onSyncMarketPrices && successCount > 0) {
+        toast.info("Đang tự động đồng bộ giá thị trường...");
+        await onSyncMarketPrices(importedAssets);
+      }
+
       if (errorCount === 0) onClose();
     } catch (error) {
       toast.error("Lỗi hệ thống khi nhập dữ liệu");

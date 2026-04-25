@@ -11,6 +11,7 @@ import { TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
 import { formatCurrency, getAssetValue, getStartDateForRange, findStartIndexForDate } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { PerformanceTable } from "../PerformanceTable";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#ffc658', '#d0ed57', '#a4de6c'];
 
@@ -474,6 +475,14 @@ export function OverviewTab({
           </CardContent>
         </Card>
       </div>
+
+      {/* Performance Comparison Table */}
+      <PerformanceTable 
+        accounts={accounts} 
+        assets={assets} 
+        investmentTransactions={investmentTransactions} 
+        usdtRate={usdtRate} 
+      />
 
       {/* Row 2: Performance Chart (Full width) */}
       <div className="grid grid-cols-1 gap-6">

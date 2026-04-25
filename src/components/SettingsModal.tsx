@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Download, Upload, Trash2, AlertTriangle, X, FileJson, Link } from "lucide-react";
+import { Download, Upload, Trash2, AlertTriangle, X, FileJson, Link, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { marketService } from "../services/marketService";
 
@@ -15,7 +15,10 @@ interface Props {
   onBulkImport: () => void;
   onImportOtherAssets: () => void;
   onClearAll: () => Promise<void>;
+  onClearMarketData?: () => Promise<void>;
   onUpdateBackendUrl: (url: string) => Promise<void>;
+  onSyncMarketPrices?: () => Promise<void>;
+  isSyncingMarketPrices?: boolean;
 }
 
 export function SettingsModal({ 
@@ -26,9 +29,13 @@ export function SettingsModal({
   onBulkImport, 
   onImportOtherAssets, 
   onClearAll, 
-  onUpdateBackendUrl
+  onClearMarketData,
+  onUpdateBackendUrl,
+  onSyncMarketPrices,
+  isSyncingMarketPrices
 }: Props) {
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [showConfirmClearMarketData, setShowConfirmClearMarketData] = useState(false);
   const [backendUrl, setBackendUrl] = useState("");
 
   useEffect(() => {
@@ -41,6 +48,13 @@ export function SettingsModal({
     await onClearAll();
     setShowConfirmClear(false);
     onClose();
+  };
+
+  const handleClearMarketData = async () => {
+    if (onClearMarketData) {
+      await onClearMarketData();
+    }
+    setShowConfirmClearMarketData(false);
   };
 
   const handleSaveBackendUrl = async () => {
@@ -56,13 +70,14 @@ export function SettingsModal({
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
         setShowConfirmClear(false);
+        setShowConfirmClearMarketData(false);
         onClose();
       }
     }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
-            {showConfirmClear ? "Xác nhận xóa dữ liệu" : "Cài đặt hệ thống"}
+            {showConfirmClear ? "Xác nhận xóa hệ thống" : showConfirmClearMarketData ? "Xác nhận xóa dữ liệu giá" : "Cài đặt hệ thống"}
           </DialogTitle>
         </DialogHeader>
         
@@ -76,9 +91,26 @@ export function SettingsModal({
             </div>
             <div className="flex flex-col gap-2">
               <Button variant="destructive" className="w-full" onClick={handleClearData}>
-                Tôi hiểu, hãy xóa toàn bộ dữ liệu
+                Tôi hiểu, hãy xóa toàn bộ dữ liệu hệ thống
               </Button>
               <Button variant="ghost" className="w-full" onClick={() => setShowConfirmClear(false)}>
+                Hủy bỏ
+              </Button>
+            </div>
+          </div>
+        ) : showConfirmClearMarketData ? (
+          <div className="py-6 space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-lg text-red-700">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <p className="text-sm font-medium">
+                Hành động này sẽ xóa toàn bộ dữ liệu lịch sử giá thị trường đã lưu trong Database. Hệ thống sẽ tải lại từ đầu trong lần đồng bộ tiếp theo.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button variant="destructive" className="w-full" onClick={handleClearMarketData}>
+                Tôi hiểu, hãy xóa dữ liệu giá
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setShowConfirmClearMarketData(false)}>
                 Hủy bỏ
               </Button>
             </div>
@@ -103,6 +135,24 @@ export function SettingsModal({
                   <Button size="sm" onClick={handleSaveBackendUrl}>Lưu</Button>
                 </div>
                 <p className="text-[10px] text-gray-400">URL này cung cấp dữ liệu giá chứng khoán, crypto và VN-Index.</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Đồng bộ Dữ liệu</h3>
+              <div className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full gap-2 text-xs justify-start" 
+                  onClick={onSyncMarketPrices}
+                  disabled={isSyncingMarketPrices}
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncingMarketPrices ? 'animate-spin' : ''}`} />
+                  {isSyncingMarketPrices ? 'Đang lưu giá thị trường...' : 'Lưu giá thị trường vào DB'}
+                </Button>
+                <p className="text-[10px] text-gray-400">
+                  Tải lịch sử giá của tất cả mã đang có và lưu vào Database để tăng tốc độ hiển thị thẻ Tổng quan và các bảng hiệu suất.
+                </p>
               </div>
             </div>
 
@@ -137,10 +187,18 @@ export function SettingsModal({
                 <Button 
                   variant="destructive" 
                   className="w-full justify-start gap-3 bg-red-50 text-red-600 hover:bg-red-100 border-red-100" 
+                  onClick={() => setShowConfirmClearMarketData(true)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Xóa dữ liệu lịch sử giá
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  className="w-full justify-start gap-3 bg-red-50 text-red-600 hover:bg-red-100 border-red-100" 
                   onClick={() => setShowConfirmClear(true)}
                 >
                   <Trash2 className="w-4 h-4" />
-                  Xóa toàn bộ dữ liệu
+                  Xóa toàn bộ dữ liệu hệ thống
                 </Button>
               </div>
               <p className="mt-2 text-xs text-gray-400">
@@ -150,7 +208,7 @@ export function SettingsModal({
           </div>
         )}
 
-        {!showConfirmClear && (
+        {!showConfirmClear && !showConfirmClearMarketData && (
           <DialogFooter>
             <Button onClick={onClose}>Đóng</Button>
           </DialogFooter>
