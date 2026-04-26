@@ -25,7 +25,7 @@ interface Period {
 const generatePeriods = (timeframe: 'week' | 'month'): Period[] => {
   const periods: Period[] = [];
   const today = new Date();
-  for (let i = 3; i >= 0; i--) {
+  for (let i = 5; i >= 0; i--) {
     if (timeframe === 'week') {
       const start = startOfWeek(subDays(today, i * 7), { weekStartsOn: 1 });
       const end = endOfWeek(start, { weekStartsOn: 1 });
@@ -59,132 +59,114 @@ export function PerformanceTable({ accounts, assets, investmentTransactions, usd
 
   const periods = useMemo(() => generatePeriods(timeframe), [timeframe]);
 
+  // 1. Pre-group transactions by assetId for O(1) lookup
+  const txsByAsset = useMemo(() => {
+    const map: Record<string, InvestmentTransaction[]> = {};
+    investmentTransactions.forEach(tx => {
+      if (!map[tx.assetId]) map[tx.assetId] = [];
+      map[tx.assetId].push(tx);
+    });
+    return map;
+  }, [investmentTransactions]);
+
   const investmentAccounts = useMemo(() => accounts.filter(a => ['brokerage', 'crypto', 'fintech'].includes(a.type)), [accounts]);
-  
-  const validAssets = useMemo(() => {
-    const accIds = investmentAccounts.map(a => a.id);
-    return assets.filter(a => accIds.includes(a.accountId) && a.symbol && !a.isFinished);
-  }, [assets, investmentAccounts]);
 
   useEffect(() => {
     let active = true;
-    const fetchPricesFromDB = async () => {
+    const fetchPrices = async () => {
       setLoading(true);
       const results: Record<string, PriceResult[]> = {};
+      const symbols = Array.from(new Set(assets.filter(a => a.symbol).map(a => a.symbol!)));
+      symbols.push('VNINDEX');
 
       try {
-        // Collect all distinct symbols
-        const symbols = Array.from(new Set(validAssets.map(a => a.symbol)));
-        symbols.push('VNINDEX');
+        // Process in chunks to be efficient
+        const chunkSize = 15;
+        for (let i = 0; i < symbols.length; i += chunkSize) {
+          if (!active) break;
+          const chunk = symbols.slice(i, i + chunkSize);
 
-        for (const symbol of symbols) {
-          if (!symbol) continue;
-          const docRef = doc(db, 'marketData', symbol);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            if (data && data.history) {
-              // Convert to PriceResult array and map to object by asset.id and 'VNINDEX'
-              // wait, the previous code mapped prices to asset.id, not symbol.
-              // So we need to store for symbol, and then construct `results` keyed by asset.id.
-              const historyArray = data.history.map((h: any) => ({
-                timestamp: h.timestamp + "T00:00:00", // pad for compatibility with existing getPrice
-                value: h.value
-              }));
-              
+          await Promise.all(chunk.map(async (symbol) => {
+            const docSnap = await getDoc(doc(db, 'marketData', symbol));
+            if (docSnap.exists() && active) {
+              const history = docSnap.data().history || [];
+
+              // CRITICAL: Only store the 12 prices we actually need for the 6 periods
+              const filteredHistory: PriceResult[] = [];
+              periods.forEach(p => {
+                // Latest price < start date
+                const startP = history.slice().reverse().find((h: any) => h.timestamp < p.startStr);
+                if (startP) filteredHistory.push({ timestamp: startP.timestamp + "T00:00:00", value: startP.value });
+
+                // Latest price <= end date
+                const endP = history.slice().reverse().find((h: any) => h.timestamp <= p.endStr);
+                if (endP) filteredHistory.push({ timestamp: endP.timestamp + "T00:00:00", value: endP.value });
+              });
+
               if (symbol === 'VNINDEX') {
-                results['VNINDEX'] = historyArray;
+                results['VNINDEX'] = filteredHistory;
               } else {
-                // Find all assets with this symbol and map them
-                const matchedAssets = validAssets.filter(a => a.symbol === symbol);
-                matchedAssets.forEach(a => {
-                  results[a.id] = historyArray;
+                assets.filter(a => a.symbol === symbol).forEach(a => {
+                  results[a.id] = filteredHistory;
                 });
               }
             }
-          }
+          }));
         }
 
-        if (active) {
-          setPrices(results);
-        }
+        if (active) setPrices(results);
       } catch (err) {
-        console.error("Failed to fetch market data from DB", err);
+        console.error("Failed to fetch market data", err);
       } finally {
         if (active) setLoading(false);
       }
     };
 
-    fetchPricesFromDB();
+    fetchPrices();
     return () => { active = false; };
-  }, [periods[0].startStr, validAssets.length]); // Re-fetch if oldest start changes
+  }, [periods, assets.length]);
 
-  const calculatePerformance = () => {
-    // 1. Group assets by Account: Fintech (Fund), Brokerage (Stock), Crypto (Crypto)
-    // Actually group by account.id for summary rows
-    const accountsData = investmentAccounts.map(acc => {
-      const accAssets = validAssets.filter(a => a.accountId === acc.id);
-      return { account: acc, assets: accAssets };
-    }).filter(group => group.assets.length > 0);
+  const calculateCompounded = (perfs: (number | null)[]) => {
+    if (perfs.every(p => p === null)) return null;
+    return perfs.reduce((acc, p) => acc * (1 + (p || 0)), 1) - 1;
+  };
 
-    // Sort groups: Fintech -> Brokerage -> Crypto
-    accountsData.sort((a, b) => {
-      const order = { fintech: 1, brokerage: 2, crypto: 3 };
-      const oa = order[a.account.type as keyof typeof order] || 4;
-      const ob = order[b.account.type as keyof typeof order] || 4;
-      return oa - ob;
-    });
+  // 2. Pre-calculate everything
+  const { periodStats, groupsWithActivity } = useMemo(() => {
+    if (Object.keys(prices).length === 0) return { periodStats: [], groupsWithActivity: [] };
 
-    // We will build a matrix: for each period, calculated start/end values.
-    // Helper to get price
     const getPrice = (assetId: string, targetStr: string, isStart: boolean) => {
       const history = prices[assetId] || [];
-      if (history.length === 0) return 0;
-      // if isStart, find largest date < targetStr
-      // if not isStart, find largest date <= targetStr
-      let found = null;
       for (let i = history.length - 1; i >= 0; i--) {
-        if (isStart ? history[i].timestamp < targetStr : history[i].timestamp <= targetStr) {
-          found = history[i].value;
-          break;
-        }
+        const hDate = history[i].timestamp.split('T')[0];
+        if (isStart ? hDate < targetStr : hDate <= targetStr) return history[i].value;
       }
-      // fallback to first available if none found and it's not start
-      if (found === null && history.length > 0 && !isStart) found = history[0].value;
-      return found || 0;
+      return 0;
     };
 
-    const periodStats = periods.map(p => {
-      const accStats: any[] = [];
-      let totalAllStart = 0;
-      let totalAllEnd = 0;
+    const accountsData = investmentAccounts.map(acc => ({
+      account: acc,
+      assets: assets.filter(a => a.accountId === acc.id && a.symbol)
+    })).filter(g => g.assets.length > 0);
 
-      // Group by Account
+    accountsData.sort((a, b) => {
+      const order = { fintech: 1, brokerage: 2, crypto: 3 };
+      return (order[a.account.type as keyof typeof order] || 4) - (order[b.account.type as keyof typeof order] || 4);
+    });
+
+    const calculatedPeriods = periods.map(p => {
+      let totalAllStart = 0, totalAllEnd = 0;
       const groupResults = accountsData.map(group => {
-        let accStartVal = 0;
-        let accEndVal = 0;
+        let accStartVal = 0, accEndVal = 0;
         const mappedAssets = group.assets.map(asset => {
           const rate = ['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase() || '') ? usdtRate : 1;
-          
-          const startPriceRaw = getPrice(asset.id, p.startStr, true);
-          const endPriceRaw = getPrice(asset.id, p.endStr, false);
-          
-          const startPrice = startPriceRaw * rate;
-          const endPrice = endPriceRaw * rate;
+          const startPrice = getPrice(asset.id, p.startStr, true) * rate;
+          const endPrice = getPrice(asset.id, p.endStr, false) * rate;
+          const txs = txsByAsset[asset.id] || [];
 
-          // Transactions
-          const txs = investmentTransactions.filter(tx => tx.assetId === asset.id);
-          
-          // Qty before start
-          let startQty = 0;
-          let buyVal = 0;
-          let sellVal = 0;
-          let endQty = 0;
-
+          let startQty = 0, buyVal = 0, sellVal = 0, endQty = 0;
           if (txs.length === 0) {
-            // Fallback for assets tracked manually without transactions
-            startQty = asset.quantity || 0;
-            endQty = asset.quantity || 0;
+            startQty = endQty = asset.quantity || 0;
           } else {
             txs.forEach(tx => {
               if (tx.date < p.startStr) {
@@ -195,7 +177,6 @@ export function PerformanceTable({ accounts, assets, investmentTransactions, usd
                 else if (tx.type === 'sell') sellVal += tx.quantity * tx.price * rate;
               }
             });
-            
             endQty = startQty;
             txs.forEach(tx => {
               if (tx.date >= p.startStr && tx.date <= p.endStr) {
@@ -204,69 +185,56 @@ export function PerformanceTable({ accounts, assets, investmentTransactions, usd
               }
             });
           }
-
-          // Formula:
-          const baseStart = startQty * startPrice;
-          const baseEnd = endQty * endPrice;
-          
-          const totalStart = baseStart + buyVal;
-          const totalEnd = baseEnd + sellVal;
-          
-          accStartVal += totalStart;
-          accEndVal += totalEnd;
-
-          // Pure price perf if we want just price diff
-          // But user wants: (End / Start) - 1 for individual assets? Wait.
-          // "tổng hợp hiệu suất các mã ... tính dựa trên tổng giá trị đầu cuối kì"
-          // "đối với mã phát sinh trong kì thì tính theo giá mua... "
-          // This implies asset row itself also uses this logic.
-          const assetPerf = totalStart > 0 ? (totalEnd / totalStart) - 1 : null;
-
-          return {
-            asset,
-            totalStart,
-            totalEnd,
-            perf: assetPerf
-          };
+          const totalStart = (startQty * startPrice) + buyVal;
+          const totalEnd = (endQty * endPrice) + sellVal;
+          accStartVal += totalStart; accEndVal += totalEnd;
+          return { asset, totalStart, totalEnd, perf: totalStart > 0 ? (totalEnd / totalStart) - 1 : null };
         });
-
-        const accPerf = accStartVal > 0 ? (accEndVal / accStartVal) - 1 : null;
-        totalAllStart += accStartVal;
-        totalAllEnd += accEndVal;
-
-        return {
-          account: group.account,
-          assets: mappedAssets,
-          accStartVal,
-          accEndVal,
-          perf: accPerf
-        };
+        totalAllStart += accStartVal; totalAllEnd += accEndVal;
+        return { account: group.account, assets: mappedAssets, perf: accStartVal > 0 ? (accEndVal / accStartVal) - 1 : null };
       });
-
-      // VNIndex
       const vnStart = getPrice('VNINDEX', p.startStr, true);
       const vnEnd = getPrice('VNINDEX', p.endStr, false);
-      const vnPerf = vnStart > 0 ? (vnEnd / vnStart) - 1 : null;
-
-      const totalPerf = totalAllStart > 0 ? (totalAllEnd / totalAllStart) - 1 : null;
-
       return {
-        vnPerf,
+        vnPerf: vnStart > 0 ? (vnEnd / vnStart) - 1 : null,
         groups: groupResults,
-        totalPerf
+        totalPerf: totalAllStart > 0 ? (totalAllEnd / totalAllStart) - 1 : null
       };
     });
 
-    return periodStats;
-  };
+    const activeGroups = accountsData.map((group, gIdx) => {
+      const activeAssets = group.assets.filter(asset => {
+        return periods.some((_, pIdx) => {
+          const assetData = calculatedPeriods[pIdx].groups[gIdx].assets.find(a => a.asset.id === asset.id);
+          return assetData && (Math.abs(assetData.totalStart) > 1 || Math.abs(assetData.totalEnd) > 1);
+        });
+      });
 
-  const periodStats = calculatePerformance();
+      // Sort active assets by total (compounded) performance
+      activeAssets.sort((a, b) => {
+        const perfsA = periods.map((_, pIdx) =>
+          calculatedPeriods[pIdx].groups[gIdx].assets.find(item => item.asset.id === a.id)?.perf ?? null
+        );
+        const perfsB = periods.map((_, pIdx) =>
+          calculatedPeriods[pIdx].groups[gIdx].assets.find(item => item.asset.id === b.id)?.perf ?? null
+        );
+        const totalA = calculateCompounded(perfsA) ?? -Infinity;
+        const totalB = calculateCompounded(perfsB) ?? -Infinity;
+        return totalB - totalA;
+      });
 
-  const renderPerfCell = (perf: number | null) => {
+      return { ...group, assets: activeAssets };
+    }).filter(g => g.assets.length > 0);
+
+    return { periodStats: calculatedPeriods, groupsWithActivity: activeGroups };
+  }, [prices, assets, periods, investmentAccounts, usdtRate, txsByAsset]);
+
+
+  const renderPerfCell = (perf: number | null, isBold = false) => {
     if (perf === null) return <TableCell className="text-right text-gray-400">-</TableCell>;
     const isPos = perf >= 0;
     return (
-      <TableCell className={`text-right font-medium ${isPos ? 'text-green-600' : 'text-red-500'}`}>
+      <TableCell className={`text-right ${isBold ? 'font-bold' : 'font-medium'} ${isPos ? 'text-green-600' : 'text-red-500'}`}>
         {isPos ? '+' : ''}{(perf * 100).toFixed(2)}%
       </TableCell>
     );
@@ -279,17 +247,13 @@ export function PerformanceTable({ accounts, assets, investmentTransactions, usd
         <div className="flex bg-gray-100 p-1 rounded-lg">
           <button
             onClick={() => setTimeframe('week')}
-            className={`px-3 py-1 text-[12px] font-medium rounded-md transition-all ${
-              timeframe === 'week' ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`px-3 py-1 text-[12px] font-medium rounded-md transition-all ${timeframe === 'week' ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
           >
             Theo Tuần
           </button>
           <button
             onClick={() => setTimeframe('month')}
-            className={`px-3 py-1 text-[12px] font-medium rounded-md transition-all ${
-              timeframe === 'month' ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`px-3 py-1 text-[12px] font-medium rounded-md transition-all ${timeframe === 'month' ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
           >
             Theo Tháng
           </button>
@@ -309,60 +273,47 @@ export function PerformanceTable({ accounts, assets, investmentTransactions, usd
                   {periods.map(p => (
                     <TableHead key={p.label} className="text-right whitespace-nowrap">{p.label}</TableHead>
                   ))}
+                  <TableHead className="text-right whitespace-nowrap font-bold text-blue-600 bg-blue-50/50">Tổng cộng</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* VNIndex Row */}
                 <TableRow className="bg-slate-50 border-b-2 border-slate-200">
                   <TableCell className="font-bold text-orange-600">VN-Index</TableCell>
-                  {periodStats.map((stat, i) => renderPerfCell(stat.vnPerf))}
+                  {periodStats.map((stat) => renderPerfCell(stat.vnPerf))}
+                  {renderPerfCell(calculateCompounded(periodStats.map(s => s.vnPerf)), true)}
                 </TableRow>
 
-                {/* Groups */}
-                {/* We need to restructure data: per column we have stats. We need to iterate over rows (groups -> assets) */}
-                
-                {(() => {
-                  const groupsData = periodStats[0]?.groups || []; // use the structure from first period
-                  const rows: React.ReactNode[] = [];
-                  
-                  groupsData.forEach((groupStructure, gIdx) => {
-                    // Render assets for this group
-                    groupStructure.assets.forEach((assetStruct) => {
-                      rows.push(
-                        <TableRow key={`asset-${assetStruct.asset.id}`}>
-                          <TableCell className="pl-4 py-2 font-medium flex items-center gap-2">
-                            {assetStruct.asset.symbol}
-                            <span className="text-[10px] bg-slate-100 text-slate-500 px-1 rounded">{groupStructure.account.name}</span>
-                          </TableCell>
-                          {periods.map((_, pIdx) => {
-                            const perf = periodStats[pIdx].groups[gIdx].assets.find(a => a.asset.id === assetStruct.asset.id)?.perf || null;
-                            return renderPerfCell(perf);
-                          })}
-                        </TableRow>
-                      );
-                    });
-
-                    // Render group summary summary
-                    rows.push(
-                      <TableRow key={`summary-${groupStructure.account.id}`} className="bg-blue-50/50">
-                        <TableCell className="pl-4 font-bold text-blue-800 text-xs py-2 uppercase">
-                          Tổng hợp {groupStructure.account.name}
+                {groupsWithActivity.map((group, gIdx) => (
+                  <React.Fragment key={group.account.id}>
+                    {group.assets.map((asset) => (
+                      <TableRow key={`asset-${asset.id}`}>
+                        <TableCell className="pl-4 py-2 font-medium flex items-center gap-2">
+                          {asset.symbol}
+                          <span className="text-[10px] bg-slate-100 text-slate-500 px-1 rounded">{group.account.name}</span>
                         </TableCell>
                         {periods.map((_, pIdx) => {
-                          const perf = periodStats[pIdx].groups[gIdx].perf;
+                          const perf = periodStats[pIdx]?.groups[gIdx]?.assets.find(a => a.asset.id === asset.id)?.perf ?? null;
                           return renderPerfCell(perf);
                         })}
+                        {renderPerfCell(calculateCompounded(periods.map((_, pIdx) =>
+                          periodStats[pIdx]?.groups[gIdx]?.assets.find(a => a.asset.id === asset.id)?.perf ?? null
+                        )), true)}
                       </TableRow>
-                    );
-                  });
+                    ))}
+                    <TableRow className="bg-blue-50/50">
+                      <TableCell className="pl-4 font-bold text-blue-800 text-xs py-2 uppercase">
+                        Tổng hợp {group.account.name}
+                      </TableCell>
+                      {periods.map((_, pIdx) => renderPerfCell(periodStats[pIdx]?.groups[gIdx]?.perf ?? null))}
+                      {renderPerfCell(calculateCompounded(periods.map((_, pIdx) => periodStats[pIdx]?.groups[gIdx]?.perf ?? null)), true)}
+                    </TableRow>
+                  </React.Fragment>
+                ))}
 
-                  return rows;
-                })()}
-
-                {/* Total Row */}
                 <TableRow className="bg-slate-100 border-t-2 border-slate-300">
                   <TableCell className="font-bold text-slate-800 uppercase">TỔNG HIỆU SUẤT TOÀN BỘ TK</TableCell>
-                  {periodStats.map((stat, i) => renderPerfCell(stat.totalPerf))}
+                  {periodStats.map((stat) => renderPerfCell(stat.totalPerf))}
+                  {renderPerfCell(calculateCompounded(periodStats.map(s => s.totalPerf)), true)}
                 </TableRow>
               </TableBody>
             </Table>

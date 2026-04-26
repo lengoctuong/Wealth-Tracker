@@ -25,6 +25,22 @@ import { toast } from "sonner";
 import { configService } from "../services/configService";
 import { marketService } from "../services/marketService";
 
+function HeaderClock() {
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
+      <Clock className="w-4 h-4" />
+      {format(currentTime, "HH:mm:ss - dd/MM/yyyy", { locale: vi })}
+    </div>
+  );
+}
+
 export function Dashboard() {
   const { user, logOut } = useAuth();
   const { accounts, loading: accountsLoading, addAccount, updateAccount, deleteAccount, clearAccounts } = useAccounts();
@@ -58,7 +74,6 @@ export function Dashboard() {
   const [selectedAssetForTx, setSelectedAssetForTx] = useState<Asset | null>(null);
   const [editingAccount, setEditingAccount] = useState<Account | undefined>(undefined);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>(undefined);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [isEditingVnIndex, setIsEditingVnIndex] = useState(false);
   const [tempVnIndex, setTempVnIndex] = useState("");
   const [isEditingUsdt, setIsEditingUsdt] = useState(false);
@@ -108,10 +123,6 @@ export function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -351,10 +362,7 @@ export function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-gray-900">Wealth Tracker</h1>
-            <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
-              <Clock className="w-4 h-4" />
-              {format(currentTime, "HH:mm:ss - dd/MM/yyyy", { locale: vi })}
-            </div>
+            <HeaderClock />
             {vnIndex && (
               <div className="hidden md:flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-full bg-blue-50 text-blue-700">
                 {isEditingVnIndex ? (
@@ -645,7 +653,7 @@ export function Dashboard() {
         clearStatus={clearStatus}
         onClearMarketData={handleClearMarketData}
         onUpdateBackendUrl={handleUpdateBackendUrl}
-        onSyncMarketPrices={handleSyncMarketPrices}
+        onSyncMarketPrices={async () => { await handleSyncMarketPrices(); }}
         isSyncingMarketPrices={isSyncingMarketData}
       />
     </div>

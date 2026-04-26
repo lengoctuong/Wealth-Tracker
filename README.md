@@ -54,16 +54,9 @@ python -m uvicorn finance-server:app --reload --port 8000
 ```
 *Mặc định server chạy tại: http://localhost:8000*
 
-## 📚 Tài liệu chi tiết
-
-Các tài liệu chi tiết hơn có thể tìm thấy trong thư mục `/docs`:
-
-- 🏗️ [**Kiến trúc & Logic kỹ thuật**](./docs/ARCHITECTURE.md): Giải thích về TWRR, FIFO và cấu trúc code.
-- ⚙️ [**Logic xử lý tài chính**](./docs/LOGIC.md): Chi tiết 3 bước xử lý dữ liệu (FIFO, Backfill, TWRR).
-- 🔌 [**Tài liệu API**](./docs/API.md): Chi tiết các endpoint của server và Python backend.
-- 📊 [**Sơ đồ hệ thống**](./docs/DIAGRAMS.md): Flowchart và Sequence Diagram (Mermaid).
-- 🗄️ [**Cấu trúc Database**](./docs/DATABASE.md): Chi tiết các Collection và Schema trong Firestore.
-- 📖 [**Hướng dẫn sử dụng**](./docs/USER_GUIDE.md): Cách thiết lập và sử dụng các tính năng trong app.
+## 📚 Tài liệu
+Chi tiết về kiến trúc, logic xử lý tài chính và hướng dẫn sử dụng có thể tìm thấy tại:
+👉 [**Documentation Index**](./docs/INDEX.md)
 
 ## 🛠️ Công nghệ sử dụng
 

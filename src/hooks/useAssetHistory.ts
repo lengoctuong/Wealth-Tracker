@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { collection, query, where, onSnapshot, addDoc, doc, getDocs, getDoc, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -383,12 +383,15 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
     }
   };
 
-  // Automatically snapshot when assets change (debounced) or on load
+  const hasSnapshotted = useRef(false);
+
+  // Automatically snapshot ONCE on load, to save today's data.
   useEffect(() => {
-    if (assets.length > 0 && vnIndexValue !== null) {
+    if (assets.length > 0 && vnIndexValue !== null && !hasSnapshotted.current) {
       const timer = setTimeout(() => {
         snapshotPortfolio();
-      }, 5000); // Wait 5s after assets load/change to snapshot
+        hasSnapshotted.current = true;
+      }, 5000); // Wait 5s after first load
       return () => clearTimeout(timer);
     }
   }, [assets, vnIndexValue, usdtRate]);

@@ -6,7 +6,7 @@ import { Asset } from "../../hooks/useAssets";
 import { AssetHistory } from "../../hooks/useAssetHistory";
 import { MarketData, MarketHistory } from "../../hooks/useMarketData";
 import { InvestmentTransaction } from "../../hooks/useTransactions";
-import { format, subDays, subMonths, isSameDay } from "date-fns";
+import { format, subDays, subMonths, subYears, isSameDay } from "date-fns";
 import { TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
 import { formatCurrency, getAssetValue, getStartDateForRange, findStartIndexForDate } from "../../lib/utils";
 import { Button } from "../ui/button";
@@ -41,9 +41,18 @@ export function OverviewTab({
   showValues = true
 }: Props) {
   const [performanceTimeRange, setPerformanceTimeRange] = React.useState('30d');
+  const [isTwrrOpen, setIsTwrrOpen] = React.useState(false);
+  const [isDebugOpen, setIsDebugOpen] = React.useState(false);
   const filteredAssets = useMemo(() => {
     return assets.filter(a => !a.isFinished && (a.quantity === undefined || a.quantity > 0 || !["stock", "etf", "coin", "crypto", "fund", "position"].includes(a.category)));
   }, [assets]);
+
+  // Helper to downsample data for Recharts to prevent RAM spikes on hover
+  const downsampleData = <T extends any>(data: T[], maxPoints = 300): T[] => {
+    if (data.length <= maxPoints) return data;
+    const step = Math.ceil(data.length / maxPoints);
+    return data.filter((_, i) => i === 0 || i === data.length - 1 || i % step === 0);
+  };
 
   // Asset Allocation by Category with Details
   const categoryAllocation = useMemo(() => {
@@ -89,44 +98,8 @@ export function OverviewTab({
     return categoryAllocation.reduce((acc, cat) => acc + cat.value, 0);
   }, [categoryAllocation]);
 
-  // Calculate Net Worth Changes
-  const netWorthChanges = useMemo(() => {
-    const getNetWorthOnDate = (date: Date) => {
-      const dateStr = format(date, 'yyyy-MM-dd');
-
-      // Find the latest history entry on or before this date
-      const entriesBeforeOrOn = history
-        .filter(h => h.date <= dateStr)
-        .sort((a, b) => b.date.localeCompare(a.date));
-
-      if (entriesBeforeOrOn.length === 0) return 0;
-
-      const latestDate = entriesBeforeOrOn[0].date;
-      return history
-        .filter(h => h.date === latestDate)
-        .reduce((sum, h) => sum + h.totalValue, 0);
-    };
-
-    const yesterday = getNetWorthOnDate(subDays(new Date(), 1));
-    const sevenDaysAgo = getNetWorthOnDate(subDays(new Date(), 7));
-    const thirtyDaysAgo = getNetWorthOnDate(subMonths(new Date(), 1));
-
-    const calculateChange = (oldValue: number) => {
-      if (oldValue === 0) return { amount: 0, percent: 0 };
-      const amount = currentNetWorth - oldValue;
-      const percent = (amount / oldValue) * 100;
-      return { amount, percent };
-    };
-
-    return {
-      daily: calculateChange(yesterday),
-      weekly: calculateChange(sevenDaysAgo),
-      monthly: calculateChange(thirtyDaysAgo)
-    };
-  }, [currentNetWorth, history]);
-
-  // Combined Investment Chart (Brokerage + Crypto + Fintech)
-  const chartData = useMemo(() => {
+  // Move cash flow calculation up to be used by both chart and netWorthChanges
+  const investmentCashFlowByDate = useMemo(() => {
     const investmentAccountIds = accounts
       .filter(a => ['brokerage', 'crypto', 'fintech', 'polymarket'].includes(a.type))
       .map(a => a.id);
@@ -156,6 +129,59 @@ export function OverviewTab({
         cashFlowByDate[targetDate] -= amount;
       }
     });
+
+    return cashFlowByDate;
+  }, [investmentTransactions, assets, accounts, vnIndexHistory, usdtRate]);
+
+  // Calculate Net Worth Changes with Cash Flow adjustment
+  const netWorthChanges = useMemo(() => {
+    const getNetWorthAndCF = (date: Date) => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+      // Find the latest history entry on or before this date
+      const entriesBeforeOrOn = history
+        .filter(h => h.date <= dateStr)
+        .sort((a, b) => b.date.localeCompare(a.date));
+
+      const oldValue = entriesBeforeOrOn.length > 0 
+        ? history.filter(h => h.date === entriesBeforeOrOn[0].date).reduce((sum, h) => sum + h.totalValue, 0)
+        : 0;
+
+      // Sum all cash flows between (dateStr) and today
+      const cashFlowInPeriod = Object.entries(investmentCashFlowByDate)
+        .filter(([d]) => d > (entriesBeforeOrOn[0]?.date || dateStr) && d <= todayStr)
+        .reduce((sum, [_, val]) => sum + val, 0);
+
+      return { oldValue, cashFlowInPeriod };
+    };
+
+    const calculateChange = (periodDate: Date) => {
+      const { oldValue, cashFlowInPeriod } = getNetWorthAndCF(periodDate);
+      if (oldValue === 0) return { amount: 0, percent: 0 };
+      
+      // Profit in period = (Current - CashFlowInPeriod) - OldValue
+      const amount = (currentNetWorth - cashFlowInPeriod) - oldValue;
+      const percent = (amount / oldValue) * 100;
+      return { amount, percent };
+    };
+
+    return {
+      m1: calculateChange(subMonths(new Date(), 1)),
+      m6: calculateChange(subMonths(new Date(), 6)),
+      y1: calculateChange(subYears(new Date(), 1)),
+      y3: calculateChange(subYears(new Date(), 3))
+    };
+  }, [currentNetWorth, history, investmentCashFlowByDate]);
+
+  // Combined Investment Chart (Brokerage + Crypto + Fintech)
+  const chartData = useMemo(() => {
+    const investmentAccountIds = accounts
+      .filter(a => ['brokerage', 'crypto', 'fintech', 'polymarket'].includes(a.type))
+      .map(a => a.id);
+
+    const tradingDates = new Set(vnIndexHistory.map(item => item.date));
+    const cashFlowByDate = investmentCashFlowByDate;
 
     const historyByDate: Record<string, any> = {};
 
@@ -252,7 +278,7 @@ export function OverviewTab({
       });
     }
 
-    return displayData;
+    return downsampleData(displayData);
   }, [history, vnIndexHistory, accounts, investmentTransactions, assets, usdtRate, performanceTimeRange]);
 
   // Total Net Worth History Chart
@@ -315,7 +341,7 @@ export function OverviewTab({
     let cumulativeReturn = 1;
     let cumulativeCashFlow = 0;
 
-    return sortedEntries.map(([date, data], i) => {
+    const resultData = sortedEntries.map(([date, data], i) => {
       const cashFlow = cashFlowByDate[date] || 0;
       cumulativeCashFlow += cashFlow;
 
@@ -346,17 +372,41 @@ export function OverviewTab({
         profitPct: (cumulativeReturn - 1) * 100
       };
     });
+    
+    return downsampleData(resultData);
   }, [history, vnIndexHistory, investmentTransactions, assets, usdtRate]);
 
-  // Calculate Current Total Profit
-  const currentTotalProfit = useMemo(() => {
-    if (netWorthHistoryData.length === 0) return { amount: 0, percent: 0 };
+  // Calculate Current Total Profit Breakdown
+  const profitBreakdown = useMemo(() => {
+    if (netWorthHistoryData.length === 0) return { total: 0, unrealized: 0, realized: 0, unrealizedPercent: 0, percent: 0 };
+    
     const latest = netWorthHistoryData[netWorthHistoryData.length - 1];
+    const totalProfit = latest.profit;
+
+    // Unrealized = Sum((CurrentPrice - PurchasePrice) * Quantity) for active assets
+    let currentHoldingsCost = 0;
+    const unrealizedProfit = assets.reduce((sum, asset) => {
+      const isInvest = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(asset.category);
+      if (!isInvest || !asset.quantity || asset.quantity <= 0 || !asset.purchasePrice || !asset.currentPrice) return sum;
+      
+      const rate = ['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? (usdtRate || 1) : 1;
+      const cost = asset.purchasePrice * asset.quantity * rate;
+      const profit = (asset.currentPrice - asset.purchasePrice) * asset.quantity * rate;
+      
+      currentHoldingsCost += cost;
+      return sum + profit;
+    }, 0);
+
+    const unrealizedPercent = currentHoldingsCost > 0 ? (unrealizedProfit / currentHoldingsCost) * 100 : 0;
+
     return {
-      amount: latest.profit,
+      total: totalProfit,
+      unrealized: unrealizedProfit,
+      unrealizedPercent: unrealizedPercent,
+      realized: totalProfit - unrealizedProfit,
       percent: latest.profitPct
     };
-  }, [netWorthHistoryData]);
+  }, [netWorthHistoryData, assets, usdtRate]);
 
   // Top Assets
   const topAssets = useMemo(() => {
@@ -424,10 +474,11 @@ export function OverviewTab({
             <div className="text-4xl font-bold tracking-tight mb-6">
               {showValues ? formatCurrency(currentNetWorth) : "****"}
             </div>
-            <div className="grid grid-cols-3 gap-4 bg-white/10 p-4 rounded-xl backdrop-blur-sm">
-              {renderChange(netWorthChanges.daily, "24h")}
-              {renderChange(netWorthChanges.weekly, "7 ngày")}
-              {renderChange(netWorthChanges.monthly, "30 ngày")}
+            <div className="grid grid-cols-2 gap-4 bg-white/10 p-4 rounded-xl backdrop-blur-sm">
+              {renderChange(netWorthChanges.m1, "30 ngày")}
+              {renderChange(netWorthChanges.m6, "6 tháng")}
+              {renderChange(netWorthChanges.y1, "1 năm")}
+              {renderChange(netWorthChanges.y3, "3 năm")}
             </div>
           </CardContent>
         </Card>
@@ -437,14 +488,33 @@ export function OverviewTab({
             <CardTitle className="text-lg font-medium text-gray-800">Tổng Lãi/Lỗ</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-3xl font-bold tracking-tight ${currentTotalProfit.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {showValues ? (currentTotalProfit.amount >= 0 ? "+" : "") + formatCurrency(currentTotalProfit.amount) : "****"}
+            <div className={`text-3xl font-bold tracking-tight ${profitBreakdown.total >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {showValues ? (profitBreakdown.total >= 0 ? "+" : "") + formatCurrency(profitBreakdown.total) : "****"}
             </div>
-            <div className={`flex items-center gap-1 text-sm font-bold mt-2 ${currentTotalProfit.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {currentTotalProfit.amount >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-              {currentTotalProfit.amount >= 0 ? "+" : ""}{currentTotalProfit.percent.toFixed(2)}% (TWRR)
+            <div className={`flex items-center gap-1 text-sm font-bold mt-1 ${profitBreakdown.total >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {profitBreakdown.total >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+              {profitBreakdown.total >= 0 ? "+" : ""}{profitBreakdown.percent.toFixed(2)}% (TWRR)
             </div>
-            <p className="text-xs text-gray-400 mt-4 italic">Bao gồm lãi đã chốt & lãi tạm tính</p>
+            
+            <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">Lãi tạm tính (Unrealized):</span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-bold px-1 rounded ${profitBreakdown.unrealized >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                    {profitBreakdown.unrealized >= 0 ? "+" : ""}{profitBreakdown.unrealizedPercent.toFixed(2)}%
+                  </span>
+                  <span className={`font-bold ${profitBreakdown.unrealized >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {showValues ? (profitBreakdown.unrealized >= 0 ? "+" : "") + formatCurrency(profitBreakdown.unrealized) : "****"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">Lãi đã chốt (Realized):</span>
+                <span className={`font-bold ${profitBreakdown.realized >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {showValues ? (profitBreakdown.realized >= 0 ? "+" : "") + formatCurrency(profitBreakdown.realized) : "****"}
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -496,8 +566,8 @@ export function OverviewTab({
                     key={range}
                     onClick={() => setPerformanceTimeRange(range)}
                     className={`px-3 py-1 text-[10px] font-medium rounded-md transition-all ${performanceTimeRange === range
-                        ? "bg-white text-primary shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white text-primary shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
                       }`}
                   >
                     {range === '7d' ? '1W' :
@@ -829,111 +899,120 @@ export function OverviewTab({
           </CardContent>
         </Card>
       </div>
-
-      {/* TWRR Performance Details (Collapsible) */}
-      <details className="mt-4 group border-t border-slate-200 pt-4">
+      <details
+        className="mt-4 group border-t border-slate-200 pt-4"
+        onToggle={(e) => setIsTwrrOpen((e.target as HTMLDetailsElement).open)}
+      >
         <summary className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer hover:text-slate-600 transition-colors list-none">
           <div className="w-1.5 h-1.5 bg-slate-300 rounded-full group-open:bg-blue-500 group-open:animate-pulse"></div>
-          Chi tiết Hiệu suất Đầu tư (TWRR vs VN-Index)
+          CHI TIẾT HIỆU SUẤT ĐẦU TƯ (TWRR vs VN-Index)
           <span className="text-[10px] font-normal opacity-60 group-open:hidden">(Click để xem chi tiết)</span>
         </summary>
-        <div className="mt-4 p-6 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent border-slate-200">
-                <TableHead className="text-[10px] uppercase text-slate-500">Ngày</TableHead>
-                <TableHead className="text-[10px] uppercase text-slate-500 text-right">V_trước (VND)</TableHead>
-                <TableHead className="text-[10px] uppercase text-slate-500 text-right">Dòng tiền (CF)</TableHead>
-                <TableHead className="text-[10px] uppercase text-slate-500 text-right">V_hiện_tại (VND)</TableHead>
-                <TableHead className="text-[10px] uppercase text-slate-500 text-right">r (%)</TableHead>
-                <TableHead className="text-[10px] uppercase text-slate-500 text-right font-bold">Tích lũy (%)</TableHead>
-                <TableHead className="text-[10px] uppercase text-slate-500 text-right">VN-Index</TableHead>
-                <TableHead className="text-[10px] uppercase text-slate-500 text-right font-bold">VN-Index (%)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {chartData.map((d, idx) => (
-                <TableRow key={`twrr-debug-${d.date}`} className="border-slate-100 hover:bg-slate-50 transition-colors">
-                  <TableCell className="text-[11px] font-mono text-slate-600">{d.date}</TableCell>
-                  <TableCell className="text-[11px] text-right font-mono text-slate-500">
-                    {idx === 0 ? '-' : (showValues ? d.twrrDetails?.vPrev.toLocaleString() : "****")}
-                  </TableCell>
-                  <TableCell className={`text-[11px] text-right font-mono ${d.twrrDetails?.cashFlow > 0 ? 'text-blue-600' : d.twrrDetails?.cashFlow < 0 ? 'text-orange-600' : 'text-slate-400'}`}>
-                    {idx === 0 ? '-' : (showValues ? (d.twrrDetails?.cashFlow > 0 ? '+' : '') + d.twrrDetails?.cashFlow.toLocaleString() : "****")}
-                  </TableCell>
-                  <TableCell className="text-[11px] text-right font-mono font-medium text-slate-700">
-                    {showValues ? d.value.toLocaleString() : "****"}
-                  </TableCell>
-                  <TableCell className={`text-[11px] text-right font-mono font-bold ${d.twrrDetails?.periodReturn > 0 ? 'text-green-600' : d.twrrDetails?.periodReturn < 0 ? 'text-red-600' : 'text-slate-400'}`}>
-                    {idx === 0 ? '0.00%' : (d.twrrDetails?.periodReturn * 100).toFixed(2) + '%'}
-                  </TableCell>
-                  <TableCell className={`text-[11px] text-right font-mono font-black ${d.valuePct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {d.valuePct >= 0 ? '+' : ''}{d.valuePct.toFixed(2)}%
-                  </TableCell>
-                  <TableCell className="text-[11px] text-right font-mono text-slate-500">
-                    {d.vnIndex.toLocaleString()}
-                  </TableCell>
-                  <TableCell className={`text-[11px] text-right font-mono font-bold ${d.vnIndexPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {d.vnIndexPct >= 0 ? '+' : ''}{d.vnIndexPct.toFixed(2)}%
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
 
-          <div className="mt-4 p-4 bg-white rounded-xl border border-blue-100 text-xs text-slate-600 leading-relaxed">
-            <p className="font-bold text-blue-700 mb-2">Công thức tính TWRR:</p>
-            <ol className="list-decimal pl-4 space-y-2">
-              <li><strong>Dòng tiền (Cash Flow - CF):</strong> <code className="bg-slate-100 px-1 rounded">CF = Tổng_Mua - Tổng_Bán</code> trong ngày.</li>
-              <li><strong>Tỷ suất lợi nhuận kỳ (Period Return - r):</strong> <code className="bg-slate-100 px-1 rounded">r = (V_hiện_tại - CF - V_trước) / V_trước</code>.</li>
-              <li><strong>Lợi nhuận tích lũy (Cumulative Return):</strong> <code className="bg-slate-100 px-1 rounded">R_tổng = (1 + r1) * (1 + r2) * ... * (1 + rn) - 1</code>.</li>
-            </ol>
+        {isTwrrOpen && (
+          <div className="mt-4 p-6 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-slate-200">
+                  <TableHead className="text-[10px] uppercase text-slate-500">Ngày</TableHead>
+                  <TableHead className="text-[10px] uppercase text-slate-500 text-right">V_trước (VND)</TableHead>
+                  <TableHead className="text-[10px] uppercase text-slate-500 text-right">Dòng tiền (CF)</TableHead>
+                  <TableHead className="text-[10px] uppercase text-slate-500 text-right">V_hiện_tại (VND)</TableHead>
+                  <TableHead className="text-[10px] uppercase text-slate-500 text-right">r (%)</TableHead>
+                  <TableHead className="text-[10px] uppercase text-slate-500 text-right font-bold">Tích lũy (%)</TableHead>
+                  <TableHead className="text-[10px] uppercase text-slate-500 text-right">VN-Index</TableHead>
+                  <TableHead className="text-[10px] uppercase text-slate-500 text-right font-bold">VN-Index (%)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {chartData.map((d, idx) => (
+                  <TableRow key={`twrr-debug-${d.date}`} className="border-slate-100 hover:bg-slate-50 transition-colors">
+                    <TableCell className="text-[11px] font-mono text-slate-600">{d.date}</TableCell>
+                    <TableCell className="text-[11px] text-right font-mono text-slate-500">
+                      {idx === 0 ? '-' : (showValues ? d.twrrDetails?.vPrev.toLocaleString() : "****")}
+                    </TableCell>
+                    <TableCell className={`text-[11px] text-right font-mono ${d.twrrDetails?.cashFlow > 0 ? 'text-blue-600' : d.twrrDetails?.cashFlow < 0 ? 'text-orange-600' : 'text-slate-400'}`}>
+                      {idx === 0 ? '-' : (showValues ? (d.twrrDetails?.cashFlow > 0 ? '+' : '') + d.twrrDetails?.cashFlow.toLocaleString() : "****")}
+                    </TableCell>
+                    <TableCell className="text-[11px] text-right font-mono font-medium text-slate-700">
+                      {showValues ? d.value.toLocaleString() : "****"}
+                    </TableCell>
+                    <TableCell className={`text-[11px] text-right font-mono font-bold ${d.twrrDetails?.periodReturn > 0 ? 'text-green-600' : d.twrrDetails?.periodReturn < 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                      {idx === 0 ? '0.00%' : (d.twrrDetails?.periodReturn * 100).toFixed(2) + '%'}
+                    </TableCell>
+                    <TableCell className={`text-[11px] text-right font-mono font-black ${d.valuePct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {d.valuePct >= 0 ? '+' : ''}{d.valuePct.toFixed(2)}%
+                    </TableCell>
+                    <TableCell className="text-[11px] text-right font-mono text-slate-500">
+                      {d.vnIndex.toLocaleString()}
+                    </TableCell>
+                    <TableCell className={`text-[11px] text-right font-mono font-bold ${d.vnIndexPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {d.vnIndexPct >= 0 ? '+' : ''}{d.vnIndexPct.toFixed(2)}%
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            <div className="mt-4 p-4 bg-white rounded-xl border border-blue-100 text-xs text-slate-600 leading-relaxed">
+              <p className="font-bold text-blue-700 mb-2">Công thức tính TWRR:</p>
+              <ol className="list-decimal pl-4 space-y-2">
+                <li><strong>Dòng tiền (Cash Flow - CF):</strong> <code className="bg-slate-100 px-1 rounded">CF = Tổng_Mua - Tổng_Bán</code> trong ngày.</li>
+                <li><strong>Tỷ suất lợi nhuận kỳ (Period Return - r):</strong> <code className="bg-slate-100 px-1 rounded">r = (V_hiện_tại - CF - V_trước) / V_trước</code>.</li>
+                <li><strong>Lợi nhuận tích lũy (Cumulative Return):</strong> <code className="bg-slate-100 px-1 rounded">R_tổng = (1 + r1) * (1 + r2) * ... * (1 + rn) - 1</code>.</li>
+              </ol>
+            </div>
           </div>
-        </div>
+        )}
       </details>
 
       {/* Debug Calculation Section (Collapsible at bottom) */}
-      <details className="mt-4 group border-t border-slate-200 pt-4">
+      <details
+        className="mt-4 group border-t border-slate-200 pt-4"
+        onToggle={(e) => setIsDebugOpen((e.target as HTMLDetailsElement).open)}
+      >
         <summary className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer hover:text-slate-600 transition-colors list-none">
           <div className="w-1.5 h-1.5 bg-slate-300 rounded-full group-open:bg-blue-500 group-open:animate-pulse"></div>
           CÔNG CỤ DEBUG: CHI TIẾT TÍNH TOÁN TỔNG TÀI SẢN
           <span className="text-[10px] font-normal opacity-60 group-open:hidden">(Click để xem chi tiết)</span>
         </summary>
 
-        <div className="mt-4 p-6 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner">
-          <div className="space-y-4">
-            {categoryAllocation.map((cat, idx) => (
-              <div key={cat.name} className="text-xs border-b border-slate-200 pb-3 last:border-0">
-                <div className="flex justify-between font-bold text-slate-700 mb-2 text-sm">
-                  <span className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                    {cat.name}
-                  </span>
-                  <span>{cat.value.toLocaleString()} VND</span>
-                </div>
-                <div className="pl-5 text-slate-500 space-y-1.5">
-                  {cat.items.map(a => (
-                    <div key={a.id} className="flex justify-between items-center hover:bg-slate-100 p-1 rounded transition-colors">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-slate-600">• {a.name}</span>
-                        <span className="text-[10px] opacity-70">
-                          Tài khoản: {accounts.find(acc => acc.id === a.accountId)?.name || 'N/A'} |
-                          ID: {a.id.slice(-6)} |
-                          Loại gốc: {a.category || 'null'}
-                        </span>
+        {isDebugOpen && (
+          <div className="mt-4 p-6 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner">
+            <div className="space-y-4">
+              {categoryAllocation.map((cat, idx) => (
+                <div key={cat.name} className="text-xs border-b border-slate-200 pb-3 last:border-0">
+                  <div className="flex justify-between font-bold text-slate-700 mb-2 text-sm">
+                    <span className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
+                      {cat.name}
+                    </span>
+                    <span>{cat.value.toLocaleString()} VND</span>
+                  </div>
+                  <div className="pl-5 text-slate-500 space-y-1.5">
+                    {cat.items.map(a => (
+                      <div key={a.id} className="flex justify-between items-center hover:bg-slate-100 p-1 rounded transition-colors">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-slate-600">• {a.name}</span>
+                          <span className="text-[10px] opacity-70">
+                            Tài khoản: {accounts.find(acc => acc.id === a.accountId)?.name || 'N/A'} |
+                            ID: {a.id.slice(-6)} |
+                            Loại gốc: {a.category || 'null'}
+                          </span>
+                        </div>
+                        <span className="font-mono">{a.value.toLocaleString()} VND</span>
                       </div>
-                      <span className="font-mono">{a.value.toLocaleString()} VND</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+              ))}
+              <div className="pt-4 flex justify-between font-black text-base text-blue-600 border-t-2 border-blue-200 mt-2 bg-blue-50/50 p-2 rounded">
+                <span>TỔNG CỘNG (SUM OF ALL ABOVE)</span>
+                <span>{currentNetWorth.toLocaleString()} VND</span>
               </div>
-            ))}
-            <div className="pt-4 flex justify-between font-black text-base text-blue-600 border-t-2 border-blue-200 mt-2 bg-blue-50/50 p-2 rounded">
-              <span>TỔNG CỘNG (SUM OF ALL ABOVE)</span>
-              <span>{currentNetWorth.toLocaleString()} VND</span>
             </div>
           </div>
-        </div>
+        )}
       </details>
     </div>
   );

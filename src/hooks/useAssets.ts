@@ -66,8 +66,7 @@ export const useAssets = () => {
 
     const q = query(
       collection(db, "investment_transactions"), 
-      where("userId", "==", user.uid),
-      where("isClosed", "==", false)
+      where("userId", "==", user.uid)
     );
     
     const unsubscribe = onSnapshot(
@@ -95,9 +94,41 @@ export const useAssets = () => {
       if (["stock", "etf", "coin", "fund", "crypto"].includes(asset.category)) {
         const assetTxs = investmentTransactions.filter(tx => tx.assetId === asset.id);
         
-        const totalQuantity = assetTxs.reduce((sum, tx) => sum + tx.remainingQty, 0);
-        const totalCost = assetTxs.reduce((sum, tx) => sum + (tx.remainingQty * tx.price), 0);
-        const avgPurchasePrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+        let totalQuantity = 0;
+        let avgPurchasePrice = 0;
+
+        if (["stock", "etf"].includes(asset.category)) {
+          // MA Logic (VNDIRECT style for Brokerage tab only)
+          // Sort chronologically ascending
+          const sortedTxs = [...assetTxs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          
+          let maPrice = 0;
+          let currentQty = 0;
+          
+          for (const tx of sortedTxs) {
+            if (tx.type === "buy") {
+              const newQty = currentQty + tx.quantity;
+              if (newQty > 0) {
+                maPrice = ((maPrice * currentQty) + (tx.price * tx.quantity)) / newQty;
+                currentQty = newQty;
+              }
+            } else if (tx.type === "sell") {
+              currentQty -= tx.quantity;
+              if (currentQty <= 0) {
+                currentQty = 0;
+                maPrice = 0; // Reset if sold out completely
+              }
+            }
+          }
+          totalQuantity = currentQty;
+          avgPurchasePrice = maPrice;
+
+        } else {
+          // FIFO Logic for Crypto/Coin
+          totalQuantity = assetTxs.reduce((sum, tx) => sum + tx.remainingQty, 0);
+          const totalCost = assetTxs.reduce((sum, tx) => sum + (tx.remainingQty * tx.price), 0);
+          avgPurchasePrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+        }
         
         return {
           ...asset,

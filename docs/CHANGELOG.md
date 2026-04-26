@@ -2,34 +2,62 @@
 
 Tất cả những thay đổi quan trọng về tính năng, logic và hiệu năng của ứng dụng sẽ được ghi nhận tại đây.
 
-## [2.0.0] - 2026-04-25 (Phiên bản hiện tại - Nâng cấp Hệ thống lõi)
+## [2.3.0] - 2026-04-27 (Tối ưu hóa Hiệu năng Cao)
 
-### 🚀 Tính năng mới & Core Logic
-- **Thuật toán FIFO (First-In-First-Out):** Triển khai cơ chế khớp lệnh mua/bán theo thứ tự thời gian để tính toán giá vốn và lãi/lỗ thực tế chính xác nhất.
-- **Backfill History Engine:** Tự động quét và tái tạo lại toàn bộ lịch sử biến động tài sản từng ngày từ giao dịch đầu tiên, cho phép xem biểu đồ tài sản trong quá khứ.
-- **Chỉ số TWRR (Time-Weighted Rate of Return):** Áp dụng công thức chuẩn quốc tế để đo lường hiệu suất đầu tư, loại bỏ hoàn toàn sự sai lệch do dòng tiền nạp/rút gây ra.
-- **Biểu đồ So sánh Hiệu suất:** Đối chiếu trực tiếp mức tăng trưởng của tài khoản với chỉ số VN-Index trên cùng một khung thời gian.
-- **Bộ lọc thời gian linh hoạt:** Hỗ trợ xem dữ liệu theo các mốc 7d, 30d, 3m, 6m, 1y, 3y, 5y và Tất cả.
-- **Hiển thị Lợi nhuận VND:** Bổ sung giá trị tiền lời tuyệt đối (VND) bên cạnh tỷ lệ phần trăm (%) ở tất cả các tab và bảng tổng quát.
+### ⚡ Hiệu năng (Performance)
+- **Fix lỗi Memory Leak toàn cục:** Tách thành phần `HeaderClock` để cô lập việc cập nhật thời gian, ngăn chặn toàn bộ ứng dụng bị re-render mỗi giây.
+- **Tối ưu hóa Firebase Snapshots:** Sử dụng `useRef` để kiểm soát các bản ghi snapshot, triệt tiêu vòng lặp fetch dữ liệu vô tận.
+- **Recharts Downsampling:** Giới hạn dữ liệu biểu đồ ở mức tối đa 300 điểm, đảm bảo thao tác hover mượt mà và không gây crash trình duyệt trên các máy có cấu hình yếu.
 
-### 🛠️ Tối ưu hóa & Hiệu năng
-- **Fix lỗi OOM (Out of Memory):** Tối ưu hóa việc render biểu đồ bằng kỹ thuật Downsampling (giảm điểm dữ liệu khi xem khoảng thời gian dài) và Memoization, giúp ứng dụng chạy mượt trên máy có RAM thấp (8GB).
-- **Hệ thống Batch Write (Firestore):** Tự động chia nhỏ các lệnh ghi dữ liệu theo lô (400-500 lệnh/lần) để tránh giới hạn của Firebase, đảm bảo hệ thống không bị crash khi xử lý hàng nghìn bản ghi.
-- **Tốc độ xóa dữ liệu:** Sử dụng cơ chế xóa Batch giúp việc dọn dẹp hệ thống nhanh gấp nhiều lần so với xóa tuần tự.
-- **Auto-Sync Historical Data:** Tự động phát hiện và tải dữ liệu VN-Index quá khứ từ Python API dựa trên ngày giao dịch đầu tiên khi thực hiện Import Bulk.
+### 🛠️ Sửa lỗi (Bug Fixes)
+- **Safe Rendering:** Xử lý triệt để lỗi runtime `toFixed` khi ứng dụng ở trạng thái dữ liệu rỗng.
 
-### 🎨 Cải tiến Giao diện (UI/UX)
-- **Thanh tiến trình (Progress Bar):** Hiển thị trạng thái % trực quan cho các tác vụ nặng: Import Bulk JSON, Xóa toàn bộ dữ liệu, Đồng bộ lịch sử.
-- **Collapsible Debug Tools:** Thu gọn các bảng tính toán chi tiết (TWRR, Tổng tài sản) để giao diện trang Tổng quan gọn gàng, chuyên nghiệp hơn.
-- **Real-time Feedback:** Hiển thị chi tiết trạng thái đang xử lý mã tài sản nào trong quá trình nhập liệu.
+---
+
+## [2.2.0] - 2026-04-27 (Nghiệp vụ Chuyên sâu & Sửa lỗi)
+
+### 🚀 Tính năng mới (Core Logic)
+- **Giá vốn Bình quân (Moving Average - MA):** Triển khai logic tính giá vốn chuyên biệt cho Tab Chứng khoán để khớp hoàn toàn với dữ liệu từ các App SSI/VNDIRECT.
+- **Bảng Hiệu suất:** Cải thiện cột Tổng cộng (Lãi kép) và tự động sắp xếp mã tài sản theo hiệu suất từ cao xuống thấp.
+- **Phân rã Lợi nhuận:** Tách bạch rõ rệt Lãi tạm tính (Unrealized) và Lãi đã chốt (Realized) ngay tại Dashboard.
+- **Tỷ suất sinh lời hiện tại:** Bổ sung hiển thị % lãi/lỗ trên giá vốn cho các vị thế đang nắm giữ.
+
+### 🛠️ Sửa lỗi (Bug Fixes)
+- **Lỗi ngày 31:** Sửa logic so sánh timestamp để lấy chính xác giá chốt phiên của các ngày cuối tháng có 31 ngày.
+- **UI/UX:** Đảo vị trí hiển thị % ra trước số tiền lãi để giao diện chuyên nghiệp hơn.
+
+---
+
+## [2.1.0] - 2026-04-26 (Đồ thị & Tối ưu hóa sơ bộ)
+
+### 📊 Biểu đồ (Charts)
+- **Biểu đồ So sánh Hiệu suất:** Đối chiếu trực tiếp mức tăng trưởng của tài khoản với chỉ số VN-Index (TWRR).
+- **Biểu đồ Biến động Tài sản:** Theo dõi tương quan giữa Tổng tài sản, Vốn đầu tư ròng và Lợi nhuận theo thời gian.
+
+### ⚙️ Hệ thống (System)
+- **Hệ thống Batch Write (Firestore):** Tự động chia nhỏ các lệnh ghi dữ liệu theo lô để tránh giới hạn của Firebase.
+- **Cơ chế Xóa nhanh:** Tối ưu hóa tốc độ dọn dẹp hệ thống khi người dùng muốn Reset dữ liệu.
+- **Auto-Sync Historical Data:** Tự động đồng bộ dữ liệu VN-Index quá khứ từ Python API.
+
+---
+
+## [2.0.0] - 2026-04-25 (Nâng cấp Hệ thống lõi)
+
+### 💎 Tính năng cốt lõi
+- **Thuật toán FIFO (First-In-First-Out):** Cơ chế khớp lệnh mua/bán chuẩn kế toán để tính lãi/lỗ thực tế.
+- **Backfill History Engine:** Tự động tái tạo lại toàn bộ lịch sử biến động tài sản từ giao dịch đầu tiên.
+- **Chỉ số TWRR (Time-Weighted Rate of Return):** Đo lường hiệu suất loại bỏ hoàn toàn nhiễu từ dòng tiền nạp/rút.
+- **Bộ lọc thời gian:** Hỗ trợ xem dữ liệu linh hoạt (7d, 30d, 3m, 6m, 1y, 3y, 5y, All).
+
+### 🎨 Giao diện (UI/UX)
+- **Thanh tiến trình (Progress Bar):** Hiển thị trạng thái cho các tác vụ nặng (Import, Sync).
+- **Collapsible Debug Tools:** Thu gọn các bảng tính toán chi tiết giúp giao diện gọn gàng.
 
 ---
 
 ## [1.0.0] - Phiên bản gốc (Quản lý số dư cơ bản)
 
 ### ✨ Tính năng chính
-- **Quản lý tài sản:** Hỗ trợ thêm/sửa/xóa nguồn tiền (Ngân hàng, Ví điện tử) và tài sản (Chứng khoán, Crypto).
-- **Tổng tài sản:** Tính toán tổng giá trị danh mục dựa trên số lượng hiện có và giá thị trường nhập thủ công.
-- **Phân bổ tài sản:** Biểu đồ tròn hiển thị tỷ lệ tài sản theo danh mục (Tiền mặt, Chứng khoán, Khác) và nền tảng.
-- **Lịch sử giao dịch:** Danh sách ghi chép các lệnh mua/bán cơ bản.
-- **Đồng bộ giá:** Tải giá hiện tại của các mã chứng khoán/crypto thông qua API.
+- **Quản lý tài sản:** Thêm/sửa/xóa nguồn tiền và tài sản cơ bản.
+- **Đồng bộ giá:** Tải giá hiện tại thông qua API đơn giản.
+- **Phân bổ tài sản:** Biểu đồ tròn hiển thị tỷ lệ tài sản theo danh mục.

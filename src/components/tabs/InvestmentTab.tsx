@@ -213,18 +213,12 @@ export function InvestmentTab({
       });
 
       // DOWNSAMPLING: If there are too many points, sample them to save memory/CPU
-      if (displayData.length > 500) {
-        const step = Math.ceil(displayData.length / 300); // Target ~300 points
-        const sampled = [];
-        for (let i = 0; i < displayData.length; i += step) {
-          sampled.push(displayData[i]);
-        }
-        // Always include the last point
-        if ((displayData.length - 1) % step !== 0) {
-          sampled.push(displayData[displayData.length - 1]);
-        }
-        displayData = sampled;
-      }
+      const downsampleData = <T extends any>(data: T[], maxPoints = 300): T[] => {
+        if (data.length <= maxPoints) return data;
+        const step = Math.ceil(data.length / maxPoints);
+        return data.filter((_, i) => i === 0 || i === data.length - 1 || i % step === 0);
+      };
+      displayData = downsampleData(displayData);
     }
 
     return displayData;
