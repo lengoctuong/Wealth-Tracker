@@ -8,7 +8,7 @@ import { Account, AccountType } from "../../hooks/useAccounts";
 import { Asset } from "../../hooks/useAssets";
 import { Transaction } from "../../hooks/useTransactions";
 import { ConfirmModal } from "../ConfirmModal";
-import { formatCurrency, getAssetValue } from "../../lib/utils";
+import { formatCurrency, getAssetValue, getCategoryLabel } from "../../lib/utils";
 
 interface Props {
   type: AccountType | 'other';
@@ -89,7 +89,8 @@ export function StandardTab({
                     <TableRow>
                       <TableHead>Tên khoản mục</TableHead>
                       <TableHead>Phân loại</TableHead>
-                      <TableHead className="text-right">Tăng trưởng</TableHead>
+                      <TableHead className="text-right">Lãi suất</TableHead>
+                      <TableHead className="text-right">Thay đổi</TableHead>
                       <TableHead className="text-right">Số dư</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
@@ -97,7 +98,7 @@ export function StandardTab({
                   <TableBody>
                     {accountAssets.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-gray-500 py-4">Chưa có khoản mục nào</TableCell>
+                        <TableCell colSpan={5} className="text-center text-gray-500 py-4">Chưa có khoản mục nào</TableCell>
                       </TableRow>
                     ) : (
                       accountAssets.map(asset => {
@@ -110,29 +111,25 @@ export function StandardTab({
                                 </div>
                                 <div>
                                   <p className="text-sm">{asset.name}</p>
-                                  {asset.interestRate ? <span className="text-[10px] text-green-600 font-medium">Lãi suất: {asset.interestRate}%/năm</span> : null}
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="bg-gray-50 text-xs">{asset.category}</Badge>
+                              <Badge variant="outline" className="bg-gray-50 text-xs">{getCategoryLabel(asset.category, type)}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right text-xs font-medium text-gray-600">
+                              {asset.category === 'cash' ? '0%' : (asset.interestRate ? `${asset.interestRate}%` : '-')}
                             </TableCell>
                             <TableCell className="text-right">
                               {(() => {
                                 const initial = asset.purchasePrice || 0;
                                 const current = asset.balance || 0;
-                                if (initial === 0) return <span className="text-gray-400">-</span>;
-                                const growth = ((current - initial) / initial) * 100;
                                 const profit = current - initial;
+                                if (initial === 0 && current === 0) return <span className="text-gray-400">-</span>;
                                 return (
-                                  <div className="flex flex-col items-end">
-                                    <span className={`text-xs font-medium ${growth >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                      {growth >= 0 ? "+" : ""}{growth.toFixed(2)}%
-                                    </span>
-                                    <span className={`text-[10px] ${profit >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                      ({profit >= 0 ? "+" : ""}{showValues ? formatCurrency(profit, asset.currency) : "****"})
-                                    </span>
-                                  </div>
+                                  <span className={`text-xs font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {profit >= 0 ? "+" : ""}{showValues ? formatCurrency(profit, asset.currency) : "****"}
+                                  </span>
                                 );
                               })()}
                             </TableCell>

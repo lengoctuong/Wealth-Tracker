@@ -1,0 +1,219 @@
+[
+  {
+    "accountName": "SSI",
+    "accountType": "brokerage",
+    "assetName": "Tiền mặt",
+    "assetSymbol": "CASH_SSI",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 4907542
+  },
+  {
+    "accountName": "CIMB",
+    "accountType": "bank",
+    "assetName": "Deposit",
+    "assetSymbol": "DEP_CIMB",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 30928
+  },
+  {
+    "accountName": "Momo",
+    "accountType": "ewallet",
+    "assetName": "Tiền mặt",
+    "assetSymbol": "CASH_MOMO",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 2191688
+  },
+  {
+    "accountName": "Momo",
+    "accountType": "ewallet",
+    "assetName": "Túi thần tài",
+    "assetSymbol": "SAV_MOMO",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 26931852,
+    "interestRate": 4
+  },
+  {
+    "accountName": "Tikop",
+    "accountType": "fintech",
+    "assetName": "Tiết kiệm 6%",
+    "assetSymbol": "SAV_TIKOP_6",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 4978820,
+    "interestRate": 6
+  },
+  {
+    "accountName": "Tikop",
+    "accountType": "fintech",
+    "assetName": "Tiết kiệm 6.5% (1)",
+    "assetSymbol": "SAV_TIKOP_6.5_1",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 7466497,
+    "interestRate": 6.5
+  },
+  {
+    "accountName": "Tikop",
+    "accountType": "fintech",
+    "assetName": "Tiết kiệm 6.5% (2)",
+    "assetSymbol": "SAV_TIKOP_6.5_2",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 4851987,
+    "interestRate": 6.5
+  },
+  {
+    "accountName": "Tikop",
+    "accountType": "fintech",
+    "assetName": "Tiết kiệm 8.5%",
+    "assetSymbol": "SAV_TIKOP_8.5",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 10074790,
+    "interestRate": 8.5
+  },
+  {
+    "accountName": "Tikop",
+    "accountType": "fintech",
+    "assetName": "Tiết kiệm 7.2% (1)",
+    "assetSymbol": "SAV_TIKOP_7.2_1",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 12075168,
+    "interestRate": 7.2
+  },
+  {
+    "accountName": "Tikop",
+    "accountType": "fintech",
+    "assetName": "Tiết kiệm 7.2% (2)",
+    "assetSymbol": "SAV_TIKOP_7.2_2",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 4987013,
+    "interestRate": 7.2
+  },
+  {
+    "accountName": "Tikop",
+    "accountType": "fintech",
+    "assetName": "Tiết kiệm 6.4%",
+    "assetSymbol": "SAV_TIKOP_6.4",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 45269809,
+    "interestRate": 6.4
+  },
+  {
+    "accountName": "Tikop",
+    "accountType": "fintech",
+    "assetName": "Tiết kiệm 6.1%",
+    "assetSymbol": "SAV_TIKOP_6.1",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 40184077,
+    "interestRate": 6.1
+  },
+  {
+    "accountName": "ShoppePay",
+    "accountType": "ewallet",
+    "assetName": "Tiền mặt",
+    "assetSymbol": "CASH_SHOPEE",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 113300
+  },
+  {
+    "accountName": "Agribank",
+    "accountType": "bank",
+    "assetName": "Số dư Agribank",
+    "assetSymbol": "BAL_AGR",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 969139
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Tiền mặt",
+    "assetSymbol": "CASH_VND",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 1754764
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Tiền gửi tiết kiệm",
+    "assetSymbol": "SAV_VND",
+    "assetCategory": "saving",
+    "currency": "VND",
+    "balance": 8215579,
+    "interestRate": 5
+  },
+  {
+    "accountName": "TCB",
+    "accountType": "bank",
+    "assetName": "Deposit",
+    "assetSymbol": "DEP_TCB",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 127328
+  },
+  {
+    "accountName": "AGR",
+    "accountType": "bank",
+    "assetName": "Deposit",
+    "assetSymbol": "DEP_AGR_BANK",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 969139
+  },
+  {
+    "accountName": "TPB",
+    "accountType": "bank",
+    "assetName": "Deposit",
+    "assetSymbol": "DEP_TPB",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 2480151
+  },
+  {
+    "accountName": "Cash",
+    "accountType": "cash",
+    "assetName": "Ví tiền mặt",
+    "assetSymbol": "CASH_WALLET",
+    "assetCategory": "cash",
+    "currency": "VND",
+    "balance": 2034000
+  },
+  {
+    "accountName": "Binance",
+    "accountType": "crypto",
+    "assetName": "USDT / Stablecoin",
+    "assetSymbol": "USDT_BINANCE",
+    "assetCategory": "usdt",
+    "currency": "USDT",
+    "balance": 202.93
+  },
+  {
+    "accountName": "Binance",
+    "accountType": "crypto",
+    "assetName": "Arbitrage SUPER",
+    "assetSymbol": "BOT_SUPER",
+    "assetCategory": "bot",
+    "currency": "USDT",
+    "balance": 16.74
+  },
+  {
+    "accountName": "Binance",
+    "accountType": "crypto",
+    "assetName": "Arbitrage LSK",
+    "assetSymbol": "BOT_LSK",
+    "assetCategory": "bot",
+    "currency": "USDT",
+    "balance": 39
+  }
+]

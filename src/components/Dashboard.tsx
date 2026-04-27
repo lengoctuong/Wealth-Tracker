@@ -60,11 +60,24 @@ export function Dashboard() {
     }, investmentTransactions[0].date);
   }, [investmentTransactions]);
 
-  const { vnIndex: marketVnIndex, vnIndexHistory, syncMarketPrices, isSyncingMarketData } = useMarketData(earliestTransactionDate);
+  const { 
+    vnIndex: marketVnIndex, 
+    vnIndexHistory, 
+    syncMarketPrices, 
+    isSyncingMarketData,
+    syncProgress,
+    syncStatus
+  } = useMarketData(earliestTransactionDate);
   const [manualVnIndex, setManualVnIndex] = useState<number | null>(null);
   const vnIndex = manualVnIndex !== null ? { price: manualVnIndex, change: 0, changePercent: 0, date: new Date().toISOString() } : marketVnIndex;
   const [usdtRate, setUsdtRate] = useState(25500);
-  const { history, backfillHistory, isBackfilling, backfillProgress } = useAssetHistory(rawAssets, vnIndex?.price || 0, usdtRate);
+  const { 
+    history, 
+    backfillHistory, 
+    isBackfilling, 
+    backfillProgress,
+    backfillStatus
+  } = useAssetHistory(rawAssets, vnIndex?.price || 0, usdtRate);
 
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
@@ -129,18 +142,38 @@ export function Dashboard() {
   };
 
   const handleExportInvestmentData = () => {
-    const data = {
-      accounts,
-      assets: rawAssets.filter(a => ['stock', 'etf', 'coin', 'fund'].includes(a.category)),
-      transactions: investmentTransactions,
-      exportDate: new Date().toISOString(),
-      version: "1.0"
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // Transform flat DB data into the hierarchical format expected by BulkImportModal
+    const investCategories = ['stock', 'etf', 'coin', 'fund'];
+    const investAssets = rawAssets.filter(a => investCategories.includes(a.category.toLowerCase()));
+    
+    const exportData = investAssets.map(asset => {
+      const account = accounts.find(acc => acc.id === asset.accountId);
+      const assetTxs = investmentTransactions
+        .filter(tx => tx.assetId === asset.id)
+        .map(tx => ({
+          date: tx.date,
+          type: tx.type,
+          quantity: tx.quantity,
+          price: tx.price
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      return {
+        accountName: account?.name || "Unknown Account",
+        accountType: account?.type || "brokerage",
+        assetName: asset.name,
+        assetSymbol: asset.symbol,
+        assetCategory: asset.category,
+        currency: asset.currency || "VND",
+        transactions: assetTxs
+      };
+    });
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `investment-backup-${format(new Date(), 'yyyyMMdd-HHmm')}.json`;
+    a.download = `investment-export-${format(new Date(), 'yyyyMMdd-HHmm')}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -148,18 +181,35 @@ export function Dashboard() {
   };
 
   const handleExportOtherAssetsData = () => {
-    const data = {
-      accounts,
-      assets: rawAssets.filter(a => !['stock', 'etf', 'coin', 'fund'].includes(a.category)),
-      transactions: regularTransactions,
-      exportDate: new Date().toISOString(),
-      version: "1.0"
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // Transform flat DB data into the format expected by ImportOtherAssetsModal
+    const investCategories = ['stock', 'etf', 'coin', 'fund'];
+    const otherAssets = rawAssets.filter(a => !investCategories.includes(a.category.toLowerCase()));
+    
+    const exportData = otherAssets.map(asset => {
+      const account = accounts.find(acc => acc.id === asset.accountId);
+      const data: any = {
+        accountName: account?.name || "Unknown Account",
+        accountType: account?.type || "cash",
+        assetName: asset.name,
+        assetSymbol: asset.symbol,
+        assetCategory: asset.category,
+        currency: asset.currency || "VND",
+        balance: asset.balance || 0,
+        purchasePrice: asset.purchasePrice || asset.balance || 0
+      };
+
+      if (asset.interestRate !== undefined) {
+        data.interestRate = asset.interestRate;
+      }
+
+      return data;
+    });
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `other-assets-backup-${format(new Date(), 'yyyyMMdd-HHmm')}.json`;
+    a.download = `other-assets-export-${format(new Date(), 'yyyyMMdd-HHmm')}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -239,8 +289,12 @@ export function Dashboard() {
       startDateToSync = fiveYearsAgo.toISOString().split('T')[0];
     }
 
-    // Collect all valid symbols
-    const validAssets = assetsSource.filter(a => a.symbol && !a.isFinished);
+    // Collect all valid symbols (Only for assets that need market prices)
+    const validAssets = assetsSource.filter(a => 
+      a.symbol && 
+      !a.isFinished && 
+      ['stock', 'etf', 'coin', 'fund'].includes(a.category.toLowerCase())
+    );
 
     const symbolsToSync: { symbol: string, type: string }[] = [{ symbol: 'VNINDEX', type: 'stock' }];
     const seenSymbols = new Set<string>();
@@ -249,8 +303,9 @@ export function Dashboard() {
       if (asset.symbol && !seenSymbols.has(asset.symbol)) {
         seenSymbols.add(asset.symbol);
         let type = 'stock';
-        if (asset.category === 'fund') type = 'fund';
-        else if (asset.category === 'coin' || asset.category === 'crypto' || asset.category === 'usdt') type = 'crypto';
+        const cat = asset.category.toLowerCase();
+        if (cat === 'fund') type = 'fund';
+        else if (['coin', 'usdt', 'bot'].includes(cat)) type = 'crypto';
 
         symbolsToSync.push({ symbol: asset.symbol, type });
       }
@@ -271,6 +326,7 @@ export function Dashboard() {
         if (asset.symbol && results[asset.symbol] !== undefined) {
           const latestPrice = results[asset.symbol];
           if (asset.currentPrice !== latestPrice) {
+            console.log(`Updating asset ${asset.symbol} (${asset.id}): ${asset.currentPrice} -> ${latestPrice}`);
             const assetRef = doc(db, "assets", asset.id);
             batch.update(assetRef, { currentPrice: latestPrice });
             updateCount++;
@@ -471,12 +527,6 @@ export function Dashboard() {
               <TabsTrigger value="other">Khác</TabsTrigger>
             </TabsList>
             <div className="flex gap-2 flex-wrap">
-              {isBackfilling && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm border border-blue-100">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Đang đồng bộ lịch sử ({backfillProgress}%)
-                </div>
-              )}
               <Button onClick={() => setIsAddAccountOpen(true)} variant="outline" size="sm">
                 <Plus className="w-4 h-4 mr-2" /> Nguồn
               </Button>
@@ -495,6 +545,11 @@ export function Dashboard() {
               vnIndex={vnIndex}
               investmentTransactions={investmentTransactions}
               isBackfilling={isBackfilling}
+              isSyncingMarketData={isSyncingMarketData}
+              syncProgress={syncProgress}
+              syncStatus={syncStatus}
+              backfillProgress={backfillProgress}
+              backfillStatus={backfillStatus}
               onBackfill={handleSyncHistory}
               usdtRate={usdtRate}
               showValues={showValues}
@@ -542,6 +597,12 @@ export function Dashboard() {
               history={history}
               vnIndexHistory={vnIndexHistory}
               investmentTransactions={investmentTransactions}
+              isBackfilling={isBackfilling}
+              isSyncingMarketData={isSyncingMarketData}
+              syncProgress={syncProgress}
+              syncStatus={syncStatus}
+              backfillProgress={backfillProgress}
+              backfillStatus={backfillStatus}
               usdtRate={usdtRate}
               showValues={showValues}
               onDeleteAsset={handleDeleteAsset}
@@ -549,6 +610,7 @@ export function Dashboard() {
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
               onOpenTransactions={(asset) => { setSelectedAssetForTx(asset); setIsTransactionModalOpen(true); }}
+              onBackfill={handleSyncHistory}
             />
           </TabsContent>
 
@@ -561,6 +623,12 @@ export function Dashboard() {
               history={history}
               vnIndexHistory={vnIndexHistory}
               investmentTransactions={investmentTransactions}
+              isBackfilling={isBackfilling}
+              isSyncingMarketData={isSyncingMarketData}
+              syncProgress={syncProgress}
+              syncStatus={syncStatus}
+              backfillProgress={backfillProgress}
+              backfillStatus={backfillStatus}
               usdtRate={usdtRate}
               showValues={showValues}
               onDeleteAsset={handleDeleteAsset}
@@ -568,6 +636,7 @@ export function Dashboard() {
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
               onOpenTransactions={(asset) => { setSelectedAssetForTx(asset); setIsTransactionModalOpen(true); }}
+              onBackfill={handleSyncHistory}
             />
           </TabsContent>
 
@@ -580,6 +649,12 @@ export function Dashboard() {
               history={history}
               vnIndexHistory={vnIndexHistory}
               investmentTransactions={investmentTransactions}
+              isBackfilling={isBackfilling}
+              isSyncingMarketData={isSyncingMarketData}
+              syncProgress={syncProgress}
+              syncStatus={syncStatus}
+              backfillProgress={backfillProgress}
+              backfillStatus={backfillStatus}
               usdtRate={usdtRate}
               showValues={showValues}
               onDeleteAsset={handleDeleteAsset}
@@ -587,6 +662,7 @@ export function Dashboard() {
               onEditAsset={(asset) => { setEditingAsset(asset); setIsAddAssetOpen(true); }}
               onEditAccount={(account) => { setEditingAccount(account); setIsAddAccountOpen(true); }}
               onOpenTransactions={(asset) => { setSelectedAssetForTx(asset); setIsTransactionModalOpen(true); }}
+              onBackfill={handleSyncHistory}
             />
           </TabsContent>
 
@@ -655,6 +731,8 @@ export function Dashboard() {
         onUpdateBackendUrl={handleUpdateBackendUrl}
         onSyncMarketPrices={async () => { await handleSyncMarketPrices(); }}
         isSyncingMarketPrices={isSyncingMarketData}
+        syncProgress={syncProgress}
+        syncStatus={syncStatus}
       />
     </div>
   );

@@ -1,0 +1,606 @@
+[
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Tập đoàn Hòa Phát",
+    "assetSymbol": "HPG",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-02-12",
+        "type": "buy",
+        "quantity": 100,
+        "price": 26950
+      },
+      {
+        "date": "2026-03-11",
+        "type": "buy",
+        "quantity": 30,
+        "price": 27500
+      }
+    ]
+  },
+  {
+    "accountName": "Fmarket",
+    "accountType": "fintech",
+    "assetName": "Quỹ Đầu tư Trái phiếu Gia tăng Thu nhập Cố định DC",
+    "assetSymbol": "DCIP",
+    "assetCategory": "fund",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2024-07-09",
+        "type": "buy",
+        "quantity": 455.93,
+        "price": 10966.43
+      },
+      {
+        "date": "2025-07-31",
+        "type": "sell",
+        "quantity": 455.93,
+        "price": 11590.28
+      }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Quỹ ETF VFMVN DIAMOND",
+    "assetSymbol": "FUEVFVND",
+    "assetCategory": "etf",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2024-08-08",
+        "type": "buy",
+        "quantity": 100,
+        "price": 31260
+      },
+      {
+        "date": "2024-11-19",
+        "type": "buy",
+        "quantity": 100,
+        "price": 31130
+      },
+      {
+        "date": "2025-04-09",
+        "type": "buy",
+        "quantity": 40,
+        "price": 25480
+      },
+      {
+        "date": "2025-07-29",
+        "type": "sell",
+        "quantity": 7,
+        "price": 36250
+      },
+      {
+        "date": "2025-07-29",
+        "type": "sell",
+        "quantity": 1,
+        "price": 36260
+      },
+      {
+        "date": "2025-07-29",
+        "type": "sell",
+        "quantity": 30,
+        "price": 36200
+      },
+      {
+        "date": "2025-07-29",
+        "type": "sell",
+        "quantity": 46,
+        "price": 36300
+      },
+      {
+        "date": "2025-07-29",
+        "type": "sell",
+        "quantity": 6,
+        "price": 36240
+      },
+      {
+        "date": "2025-09-11",
+        "type": "sell",
+        "quantity": 41,
+        "price": 39900
+      },
+      {
+        "date": "2025-09-11",
+        "type": "sell",
+        "quantity": 29,
+        "price": 39950
+      },
+      {
+        "date": "2026-03-10",
+        "type": "buy",
+        "quantity": 20,
+        "price": 36000
+      }
+    ]
+  },
+  {
+    "accountName": "Fmarket",
+    "accountType": "fintech",
+    "assetName": "Quỹ Đầu tư Cổ phiếu Năng động Dragon Capital",
+    "assetSymbol": "DCDS",
+    "assetCategory": "fund",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2024-06-11",
+        "type": "buy",
+        "quantity": 4.9,
+        "price": 81672.79
+      },
+      {
+        "date": "2024-06-27",
+        "type": "buy",
+        "quantity": 4.93,
+        "price": 80917.3
+      },
+      {
+        "date": "2024-07-24",
+        "type": "buy",
+        "quantity": 7.73,
+        "price": 77593.1
+      },
+      {
+        "date": "2024-08-07",
+        "type": "buy",
+        "quantity": 7.93,
+        "price": 75657.72
+      },
+      {
+        "date": "2024-09-12",
+        "type": "buy",
+        "quantity": 6.36,
+        "price": 78587.15
+      },
+      {
+        "date": "2024-10-28",
+        "type": "buy",
+        "quantity": 12.66,
+        "price": 78960.95
+      },
+      {
+        "date": "2024-11-20",
+        "type": "buy",
+        "quantity": 6.61,
+        "price": 75618
+      },
+      {
+        "date": "2025-01-15",
+        "type": "buy",
+        "quantity": 6.42,
+        "price": 77863.23
+      },
+      {
+        "date": "2025-04-08",
+        "type": "buy",
+        "quantity": 20.13,
+        "price": 74513.26
+      },
+      {
+        "date": "2025-07-31",
+        "type": "sell",
+        "quantity": 37,
+        "price": 97612.53
+      },
+      {
+        "date": "2025-09-12",
+        "type": "sell",
+        "quantity": 20,
+        "price": 107841.76
+      },
+      {
+        "date": "2025-10-29",
+        "type": "buy",
+        "quantity": 18.75,
+        "price": 106647.79
+      },
+      {
+        "date": "2025-11-12",
+        "type": "buy",
+        "quantity": 20.14,
+        "price": 99299.22
+      },
+      {
+        "date": "2026-01-30",
+        "type": "buy",
+        "quantity": 18.41,
+        "price": 108628.58
+      },
+      {
+        "date": "2026-02-10",
+        "type": "buy",
+        "quantity": 14.06,
+        "price": 106667.84
+      },
+      {
+        "date": "2026-03-11",
+        "type": "buy",
+        "quantity": 9.88,
+        "price": 101173.3
+      }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Quỹ ETF VFMVN30",
+    "assetSymbol": "E1VFVN30",
+    "assetCategory": "etf",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-02-11",
+        "type": "buy",
+        "quantity": 60,
+        "price": 35400
+      },
+      {
+        "date": "2026-03-10",
+        "type": "buy",
+        "quantity": 40,
+        "price": 34500
+      }
+    ]
+  },
+  {
+    "accountName": "SSI",
+    "accountType": "brokerage",
+    "assetName": "Công ty Cổ phần Tập đoàn Hóa chất Đức Giang",
+    "assetSymbol": "DGC",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-03-11",
+        "type": "buy",
+        "quantity": 20,
+        "price": 78100
+      },
+      {
+        "date": "2026-03-24",
+        "type": "sell",
+        "quantity": 20,
+        "price": 53300
+      }
+    ]
+  },
+  {
+    "accountName": "Fmarket",
+    "accountType": "fintech",
+    "assetName": "Quỹ Đầu tư Trái phiếu Dragon Capital",
+    "assetSymbol": "DCBF",
+    "assetCategory": "fund",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2025-09-17",
+        "type": "buy",
+        "quantity": 75.81,
+        "price": 28421.42
+      },
+      {
+        "date": "2026-02-27",
+        "type": "sell",
+        "quantity": 75.81,
+        "price": 29310.56
+      }
+    ]
+  },
+  {
+    "accountName": "SSI",
+    "accountType": "brokerage",
+    "assetName": "Công ty Cổ phần DAP - Vinachem",
+    "assetSymbol": "DDV",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-02-25",
+        "type": "buy",
+        "quantity": 50,
+        "price": 30624
+      },
+      {
+        "date": "2026-03-10",
+        "type": "sell",
+        "quantity": 50,
+        "price": 30300
+      }
+    ]
+  },
+  {
+    "accountName": "SSI",
+    "accountType": "brokerage",
+    "assetName": "Công ty Cổ phần Dịch vụ Hàng không Taseco",
+    "assetSymbol": "AST",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-02-25",
+        "type": "buy",
+        "quantity": 20,
+        "price": 75700
+      },
+      {
+        "date": "2026-03-19",
+        "type": "sell",
+        "quantity": 20,
+        "price": 69605
+      }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Đầu tư Thế Giới Di Động",
+    "assetSymbol": "MWG",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-03-23",
+        "type": "buy",
+        "quantity": 20,
+        "price": 74300
+      }
+    ]
+  },
+  {
+    "accountName": "SSI",
+    "accountType": "brokerage",
+    "assetName": "Công ty Cổ phần Chứng khoán SSI",
+    "assetSymbol": "SSI",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-02-25",
+        "type": "buy",
+        "quantity": 50,
+        "price": 32350
+      },
+      {
+        "date": "2026-03-10",
+        "type": "buy",
+        "quantity": 20,
+        "price": 29900
+      },
+      {
+        "date": "2026-03-24",
+        "type": "sell",
+        "quantity": 40,
+        "price": 26000
+      },
+      {
+        "date": "2026-03-26",
+        "type": "sell",
+        "quantity": 30,
+        "price": 26702
+      }
+    ]
+  },
+  {
+    "accountName": "SSI",
+    "accountType": "brokerage",
+    "assetName": "Công ty Cổ phần Xây dựng Coteccons",
+    "assetSymbol": "CTD",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-03-19",
+        "type": "buy",
+        "quantity": 20,
+        "price": 83000
+      },
+      {
+        "date": "2026-04-06",
+        "type": "sell",
+        "quantity": 20,
+        "price": 79205
+      }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Ngân hàng Quân đội (MB)",
+    "assetSymbol": "MBB",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-03-11",
+        "type": "buy",
+        "quantity": 50,
+        "price": 26900
+      }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Tập đoàn Bảo Việt",
+    "assetSymbol": "BVH",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-04-24",
+        "type": "buy",
+        "quantity": 20,
+        "price": 71500
+      }
+    ]
+  },
+  {
+    "accountName": "Fmarket",
+    "accountType": "fintech",
+    "assetName": "Quỹ Đầu tư Cổ phiếu Tiếp cận Thị trường Việt Nam SSI",
+    "assetSymbol": "SSISCA",
+    "assetCategory": "fund",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2024-11-15",
+        "type": "buy",
+        "quantity": 12.71,
+        "price": 39031.46
+      },
+      {
+        "date": "2025-04-08",
+        "type": "buy",
+        "quantity": 40.38,
+        "price": 36860.79
+      }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Vàng bạc Đá quý Phú Nhuận",
+    "assetSymbol": "PNJ",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-03-23",
+        "type": "buy",
+        "quantity": 1,
+        "price": 70867
+      }
+    ]
+  },
+  {
+    "accountName": "Fmarket",
+    "accountType": "fintech",
+    "assetName": "Quỹ Đầu Tư Cổ Phiếu Kinh Tế Hiện Đại VinaCapital",
+    "assetSymbol": "VMEEF",
+    "assetCategory": "fund",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2024-11-15",
+        "type": "buy",
+        "quantity": 33.98,
+        "price": 14713.42
+      },
+      {
+        "date": "2025-01-14",
+        "type": "buy",
+        "quantity": 33.87,
+        "price": 14760.98
+      },
+      {
+        "date": "2026-03-11",
+        "type": "buy",
+        "quantity": 59.15,
+        "price": 16905.52
+      }
+    ]
+  },
+  {
+    "accountName": "VNDIRECT",
+    "accountType": "brokerage",
+    "assetName": "Quỹ ETF SSIAM VNFIN LEAD",
+    "assetSymbol": "FUESSVFL",
+    "assetCategory": "etf",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-02-03",
+        "type": "buy",
+        "quantity": 100,
+        "price": 30800
+      }
+    ]
+  },
+  {
+    "accountName": "SSI",
+    "accountType": "brokerage",
+    "assetName": "Công ty Cổ phần Phân bón Dầu khí Cà Mau",
+    "assetSymbol": "DCM",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-02-25",
+        "type": "buy",
+        "quantity": 30,
+        "price": 41305
+      },
+      {
+        "date": "2026-03-10",
+        "type": "sell",
+        "quantity": 30,
+        "price": 49130
+      }
+    ]
+  },
+  {
+    "accountName": "Fmarket",
+    "accountType": "fintech",
+    "assetName": "Quỹ Đầu tư Doanh nghiệp Hàng đầu Dragon Capital",
+    "assetSymbol": "DCDE",
+    "assetCategory": "fund",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2025-11-03",
+        "type": "buy",
+        "quantity": 95.07,
+        "price": 31552.93
+      }
+    ]
+  },
+  {
+    "accountName": "SSI",
+    "accountType": "brokerage",
+    "assetName": "Công ty Cổ phần Điện Gia Lai",
+    "assetSymbol": "GEG",
+    "assetCategory": "stock",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2026-03-19",
+        "type": "buy",
+        "quantity": 100,
+        "price": 16650
+      },
+      {
+        "date": "2026-04-06",
+        "type": "sell",
+        "quantity": 100,
+        "price": 15400
+      }
+    ]
+  },
+  {
+    "accountName": "Fmarket",
+    "accountType": "fintech",
+    "assetName": "Quỹ Đầu Tư Trái Phiếu Lighthouse",
+    "assetSymbol": "LHBF",
+    "assetCategory": "fund",
+    "currency": "VND",
+    "transactions": [
+      {
+        "date": "2025-07-17",
+        "type": "buy",
+        "quantity": 69.72,
+        "price": 14341.85
+      },
+      {
+        "date": "2026-02-26",
+        "type": "sell",
+        "quantity": 69.72,
+        "price": 14787.24
+      }
+    ]
+  }
+]

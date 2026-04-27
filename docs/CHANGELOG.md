@@ -2,7 +2,38 @@
 
 Tất cả những thay đổi quan trọng về tính năng, logic và hiệu năng của ứng dụng sẽ được ghi nhận tại đây.
 
-## [2.3.0] - 2026-04-27 (Tối ưu hóa Hiệu năng Cao)
+## [2.4.0] - 2026-04-27 (Chuẩn hóa các tài sản tĩnh & Nhất quán Dữ liệu)
+
+### 🏦 Chuẩn hóa Tài sản tĩnh (Static Assets Standardization)
+- **Tách biệt hoàn toàn:** Phân định rõ ràng giữa nhóm Tài sản Đầu tư (theo dõi theo giao dịch) và Tài sản Tĩnh (theo dõi theo số dư).
+- **Bổ sung cột nghiệp vụ:** Hỗ trợ hiển thị cột **Lãi suất** (cho Tiết kiệm) và cột **Thay đổi** giá trị so với vốn gốc để người dùng dễ dàng theo dõi hiệu quả của các tài sản không biến động theo thị trường.
+- **Tối ưu hiển thị:** Tự động ẩn các trường dữ liệu không cần thiết (như Symbol) đối với nhóm tài sản tĩnh.
+
+### 🏗️ Tái cấu trúc & Nhất quán (Data Integrity)
+- **Chuẩn hóa Phân loại:**
+    - Chuyển `bot` từ tài sản đầu tư sang tài sản tĩnh (giống tiền mặt/tiết kiệm), loại bỏ việc lấy giá tự động không cần thiết.
+    - Nhất quán hóa `coin` và `crypto` về một mã duy nhất là `coin`.
+    - Loại bỏ phân loại `position` (Vị thế) do thiếu các tham số tính toán chuyên sâu (leverage, entry price).
+- **Phát hiện trùng lặp:** Thêm logic kiểm tra giao dịch đã tồn tại trong lúc Import Bulk để tránh dữ liệu rác.
+
+### 📤 Tính di động (Data Portability)
+- **Portable Export/Import:** Chỉnh sửa logic Xuất dữ liệu để loại bỏ ID hệ thống, giúp file JSON có thể nhập vào bất kỳ tài khoản người dùng nào khác mà vẫn giữ nguyên cấu trúc.
+
+### 💎 Tối ưu hóa Firestore (Cost Saving)
+- **Smart Sync (Dirty Check):** Triển khai cơ chế kiểm tra dữ liệu trước khi ghi. Hệ thống chỉ ghi vào DB nếu dữ liệu lịch sử tài sản có thay đổi, giúp giảm hơn 90% số lượng lượt ghi (Write operations), bảo vệ hạn mức 20k/ngày của Firebase Free Tier.
+- **Phát hiện Quota Exceeded:** Thêm thông báo lỗi chi tiết khi hết hạn mức ghi Firestore để người dùng chủ động biết nguyên nhân.
+
+### 🎨 Trải nghiệm người dùng (UX)
+- **Sync Confirmation:** Thêm Modal xác nhận trước khi đồng bộ toàn bộ tài sản với các tùy chọn thông báo linh hoạt.
+- **Cải thiện Modal Nhập:** Cho phép đóng cửa sổ nhập "Tài sản khác" trong lúc đang tải dữ liệu.
+
+### 🛠️ Sửa lỗi (Bug Fixes)
+- **Fix Crash Import:** Sửa lỗi `undefined` khi kiểm tra giao dịch trùng lặp trong trường hợp người dùng chưa có dữ liệu lịch sử.
+- **Fix Props Mismatch:** Sửa lỗi truyền props `confirmText` và `confirmVariant` trong component `ConfirmModal`.
+
+---
+
+## [2.3.0] - 2026-04-26 (Tối ưu hóa Hiệu năng Cao)
 
 ### ⚡ Hiệu năng (Performance)
 - **Fix lỗi Memory Leak toàn cục:** Tách thành phần `HeaderClock` để cô lập việc cập nhật thời gian, ngăn chặn toàn bộ ứng dụng bị re-render mỗi giây.
@@ -14,7 +45,7 @@ Tất cả những thay đổi quan trọng về tính năng, logic và hiệu n
 
 ---
 
-## [2.2.0] - 2026-04-27 (Nghiệp vụ Chuyên sâu & Sửa lỗi)
+## [2.2.0] - 2026-04-25 (Nghiệp vụ Chuyên sâu & Sửa lỗi)
 
 ### 🚀 Tính năng mới (Core Logic)
 - **Giá vốn Bình quân (Moving Average - MA):** Triển khai logic tính giá vốn chuyên biệt cho Tab Chứng khoán để khớp hoàn toàn với dữ liệu từ các App SSI/VNDIRECT.
@@ -28,7 +59,7 @@ Tất cả những thay đổi quan trọng về tính năng, logic và hiệu n
 
 ---
 
-## [2.1.0] - 2026-04-26 (Đồ thị & Tối ưu hóa sơ bộ)
+## [2.1.0] - 2026-04-24 (Đồ thị & Tối ưu hóa sơ bộ)
 
 ### 📊 Biểu đồ (Charts)
 - **Biểu đồ So sánh Hiệu suất:** Đối chiếu trực tiếp mức tăng trưởng của tài khoản với chỉ số VN-Index (TWRR).
@@ -41,7 +72,7 @@ Tất cả những thay đổi quan trọng về tính năng, logic và hiệu n
 
 ---
 
-## [2.0.0] - 2026-04-25 (Nâng cấp Hệ thống lõi)
+## [2.0.0] - 2026-04-01 (Nâng cấp Hệ thống lõi)
 
 ### 💎 Tính năng cốt lõi
 - **Thuật toán FIFO (First-In-First-Out):** Cơ chế khớp lệnh mua/bán chuẩn kế toán để tính lãi/lỗ thực tế.
@@ -55,7 +86,7 @@ Tất cả những thay đổi quan trọng về tính năng, logic và hiệu n
 
 ---
 
-## [1.0.0] - Phiên bản gốc (Quản lý số dư cơ bản)
+## [1.0.0] - Đầu năm 2026 - Phiên bản gốc (Quản lý số dư cơ bản)
 
 ### ✨ Tính năng chính
 - **Quản lý tài sản:** Thêm/sửa/xóa nguồn tiền và tài sản cơ bản.

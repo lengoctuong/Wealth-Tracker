@@ -28,7 +28,7 @@ export function ImportOtherAssetsModal({ isOpen, onClose }: Props) {
 
     // Filter only non-investment assets
     const otherAssetsData = data.filter(item => 
-      !["stock", "etf", "coin", "fund"].includes(item.assetCategory)
+      !["stock", "etf", "coin", "fund"].includes(item.assetCategory.toLowerCase())
     );
 
     if (otherAssetsData.length === 0) {
@@ -94,8 +94,11 @@ export function ImportOtherAssetsModal({ isOpen, onClose }: Props) {
             await addAsset(assetData);
           }
 
-        } catch (err) {
+        } catch (err: any) {
           console.error("Error processing item:", item, err);
+          if (err.code === 'resource-exhausted' || err.message?.includes('quota')) {
+            throw err;
+          }
         }
 
         processed++;
@@ -104,9 +107,13 @@ export function ImportOtherAssetsModal({ isOpen, onClose }: Props) {
 
       toast.success(`Đã nhập thành công ${processed} tài sản khác.`);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Import error:", error);
-      toast.error("Lỗi khi nhập dữ liệu. Vui lòng kiểm tra lại dữ liệu JSON.");
+      if (error.code === 'resource-exhausted' || error.message?.includes('quota')) {
+        toast.error("Hết hạn mức ghi Firestore (20k/ngày). Vui lòng thử lại vào ngày mai!");
+      } else {
+        toast.error("Lỗi khi nhập dữ liệu. Vui lòng kiểm tra lại dữ liệu JSON.");
+      }
     } finally {
       setLoading(false);
     }
@@ -141,7 +148,7 @@ export function ImportOtherAssetsModal({ isOpen, onClose }: Props) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && !loading && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Nhập Tài Sản Khác (JSON)</DialogTitle>
@@ -215,7 +222,7 @@ export function ImportOtherAssetsModal({ isOpen, onClose }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={loading}>Đóng</Button>
+          <Button variant="outline" onClick={onClose}>Đóng</Button>
           {!loading && (
             <Button onClick={handleManualSubmit} disabled={!jsonInput.trim()}>
               Bắt đầu nhập

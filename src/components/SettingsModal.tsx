@@ -21,6 +21,8 @@ interface Props {
   isSyncingMarketPrices?: boolean;
   clearProgress?: number;
   clearStatus?: string;
+  syncProgress?: number;
+  syncStatus?: string;
 }
 
 export function SettingsModal({ 
@@ -36,7 +38,9 @@ export function SettingsModal({
   onSyncMarketPrices,
   isSyncingMarketPrices,
   clearProgress = 0,
-  clearStatus = ""
+  clearStatus = "",
+  syncProgress = 0,
+  syncStatus = ""
 }: Props) {
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [showConfirmClearMarketData, setShowConfirmClearMarketData] = useState(false);
@@ -170,6 +174,20 @@ export function SettingsModal({
                   <RefreshCw className={`w-4 h-4 ${isSyncingMarketPrices ? 'animate-spin' : ''}`} />
                   {isSyncingMarketPrices ? 'Đang lưu giá thị trường...' : 'Lưu giá thị trường vào DB'}
                 </Button>
+                {isSyncingMarketPrices && (
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-medium text-blue-600">
+                      <span className="truncate max-w-[250px]">{syncStatus}</span>
+                      <span>{syncProgress}%</span>
+                    </div>
+                    <div className="w-full bg-blue-100 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-blue-500 h-full transition-all duration-300" 
+                        style={{ width: `${syncProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <p className="text-[10px] text-gray-400">
                   Tải lịch sử giá của tất cả mã đang có và lưu vào Database để tăng tốc độ hiển thị thẻ Tổng quan và các bảng hiệu suất.
                 </p>

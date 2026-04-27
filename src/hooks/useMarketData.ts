@@ -20,6 +20,8 @@ export const useMarketData = (startDate?: string | null) => {
   const [vnIndexHistory, setVnIndexHistory] = useState<MarketHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSyncingMarketData, setIsSyncingMarketData] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatus, setSyncStatus] = useState("");
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "marketData", "VNINDEX"), (docSnap) => {
@@ -134,9 +136,13 @@ export const useMarketData = (startDate?: string | null) => {
       const chunkSize = 5;
       for (let i = 0; i < symbols.length; i += chunkSize) {
         const chunk = symbols.slice(i, i + chunkSize);
+        setSyncStatus(`Đang tải giá ${chunk.map(c => c.symbol).join(', ')}...`);
         await Promise.all(chunk.map(fetchSymbol));
+        const progress = Math.round((Math.min(i + chunkSize, symbols.length) / symbols.length) * 100);
+        setSyncProgress(progress);
       }
 
+      setSyncStatus("Đang lưu dữ liệu thị trường...");
       // Save new ngrok fetches to Firebase
       for (const res of resultsToSave) {
         await setDoc(doc(db, "marketData", res.ticker), {
@@ -158,5 +164,5 @@ export const useMarketData = (startDate?: string | null) => {
     }
   };
 
-  return { vnIndex, vnIndexHistory, loading, syncMarketPrices, isSyncingMarketData };
+  return { vnIndex, vnIndexHistory, loading, syncMarketPrices, isSyncingMarketData, syncProgress, syncStatus };
 };

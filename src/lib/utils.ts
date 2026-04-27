@@ -122,3 +122,22 @@ export function findStartIndexForDate(data: { date: string }[], startDate: Date)
   
   return closestIndex;
 }
+
+/**
+ * Gets the standardized label for an asset category.
+ */
+export function getCategoryLabel(category: string, accountType?: string) {
+  switch (category) {
+    case 'saving': return "Tiết kiệm";
+    case 'etf': return "ETF";
+    case 'fund': return accountType === 'fintech' ? "Quỹ mở" : "Chứng chỉ quỹ";
+    case 'stock': return "Cổ phiếu";
+    case 'cash': return "Tiền mặt";
+    case 'coin': return "Coin / Token";
+    case 'usdt': return "USDT / Stablecoin";
+    case 'bot': return "Bot Trading";
+    default: 
+      if (!category) return "";
+      return category.charAt(0).toUpperCase() + category.slice(1);
+  }
+}

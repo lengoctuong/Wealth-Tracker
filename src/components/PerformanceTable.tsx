@@ -197,27 +197,30 @@ export function PerformanceTable({ accounts, assets, investmentTransactions, usd
       const vnEnd = getPrice('VNINDEX', p.endStr, false);
       return {
         vnPerf: vnStart > 0 ? (vnEnd / vnStart) - 1 : null,
-        groups: groupResults,
+        groups: groupResults.reduce((acc, g) => ({ ...acc, [g.account.id]: g }), {} as Record<string, any>),
         totalPerf: totalAllStart > 0 ? (totalAllEnd / totalAllStart) - 1 : null
       };
     });
 
-    const activeGroups = accountsData.map((group, gIdx) => {
+    const activeGroups = accountsData.map((group) => {
       const activeAssets = group.assets.filter(asset => {
         return periods.some((_, pIdx) => {
-          const assetData = calculatedPeriods[pIdx].groups[gIdx].assets.find(a => a.asset.id === asset.id);
+          const groupStats = (calculatedPeriods[pIdx].groups as any)[group.account.id];
+          const assetData = groupStats?.assets.find((a: any) => a.asset.id === asset.id);
           return assetData && (Math.abs(assetData.totalStart) > 1 || Math.abs(assetData.totalEnd) > 1);
         });
       });
 
       // Sort active assets by total (compounded) performance
       activeAssets.sort((a, b) => {
-        const perfsA = periods.map((_, pIdx) =>
-          calculatedPeriods[pIdx].groups[gIdx].assets.find(item => item.asset.id === a.id)?.perf ?? null
-        );
-        const perfsB = periods.map((_, pIdx) =>
-          calculatedPeriods[pIdx].groups[gIdx].assets.find(item => item.asset.id === b.id)?.perf ?? null
-        );
+        const perfsA = periods.map((_, pIdx) => {
+          const groupStats = (calculatedPeriods[pIdx].groups as any)[group.account.id];
+          return groupStats?.assets.find((item: any) => item.asset.id === a.id)?.perf ?? null;
+        });
+        const perfsB = periods.map((_, pIdx) => {
+          const groupStats = (calculatedPeriods[pIdx].groups as any)[group.account.id];
+          return groupStats?.assets.find((item: any) => item.asset.id === b.id)?.perf ?? null;
+        });
         const totalA = calculateCompounded(perfsA) ?? -Infinity;
         const totalB = calculateCompounded(perfsB) ?? -Infinity;
         return totalB - totalA;
@@ -283,29 +286,37 @@ export function PerformanceTable({ accounts, assets, investmentTransactions, usd
                   {renderPerfCell(calculateCompounded(periodStats.map(s => s.vnPerf)), true)}
                 </TableRow>
 
-                {groupsWithActivity.map((group, gIdx) => (
+                {groupsWithActivity.map((group) => (
                   <React.Fragment key={group.account.id}>
-                    {group.assets.map((asset) => (
+                    {group.assets.filter(a => a.symbol).map((asset) => (
                       <TableRow key={`asset-${asset.id}`}>
                         <TableCell className="pl-4 py-2 font-medium flex items-center gap-2">
                           {asset.symbol}
                           <span className="text-[10px] bg-slate-100 text-slate-500 px-1 rounded">{group.account.name}</span>
                         </TableCell>
                         {periods.map((_, pIdx) => {
-                          const perf = periodStats[pIdx]?.groups[gIdx]?.assets.find(a => a.asset.id === asset.id)?.perf ?? null;
+                          const groupStats = (periodStats[pIdx]?.groups as any)[group.account.id];
+                          const perf = groupStats?.assets.find((a: any) => a.asset.id === asset.id)?.perf ?? null;
                           return renderPerfCell(perf);
                         })}
-                        {renderPerfCell(calculateCompounded(periods.map((_, pIdx) =>
-                          periodStats[pIdx]?.groups[gIdx]?.assets.find(a => a.asset.id === asset.id)?.perf ?? null
-                        )), true)}
+                        {renderPerfCell(calculateCompounded(periods.map((_, pIdx) => {
+                          const groupStats = (periodStats[pIdx]?.groups as any)[group.account.id];
+                          return groupStats?.assets.find((a: any) => a.asset.id === asset.id)?.perf ?? null;
+                        })), true)}
                       </TableRow>
                     ))}
                     <TableRow className="bg-blue-50/50">
                       <TableCell className="pl-4 font-bold text-blue-800 text-xs py-2 uppercase">
                         Tổng hợp {group.account.name}
                       </TableCell>
-                      {periods.map((_, pIdx) => renderPerfCell(periodStats[pIdx]?.groups[gIdx]?.perf ?? null))}
-                      {renderPerfCell(calculateCompounded(periods.map((_, pIdx) => periodStats[pIdx]?.groups[gIdx]?.perf ?? null)), true)}
+                      {periods.map((_, pIdx) => {
+                        const groupStats = (periodStats[pIdx]?.groups as any)[group.account.id];
+                        return renderPerfCell(groupStats?.perf ?? null);
+                      })}
+                      {renderPerfCell(calculateCompounded(periods.map((_, pIdx) => {
+                        const groupStats = (periodStats[pIdx]?.groups as any)[group.account.id];
+                        return groupStats?.perf ?? null;
+                      })), true)}
                     </TableRow>
                   </React.Fragment>
                 ))}

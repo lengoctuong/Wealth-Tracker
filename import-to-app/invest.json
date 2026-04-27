@@ -366,7 +366,7 @@
     ]
   },
   {
-    "accountName": "Tikop",
+    "accountName": "Fmarket",
     "accountType": "fintech",
     "assetName": "Quỹ Đầu tư Cổ phiếu Năng động Dragon Capital",
     "assetSymbol": "DCDS",
@@ -472,7 +472,7 @@
     ]
   },
   {
-    "accountName": "Tikop",
+    "accountName": "Fmarket",
     "accountType": "fintech",
     "assetName": "Quỹ Đầu tư Trái phiếu Gia tăng Thu nhập Cố định DC",
     "assetSymbol": "DCIP",
@@ -494,7 +494,7 @@
     ]
   },
   {
-    "accountName": "Tikop",
+    "accountName": "Fmarket",
     "accountType": "fintech",
     "assetName": "Quỹ Đầu tư Cổ phiếu Tiếp cận Thị trường Việt Nam SSI",
     "assetSymbol": "SSISCA",
@@ -516,7 +516,7 @@
     ]
   },
   {
-    "accountName": "Tikop",
+    "accountName": "Fmarket",
     "accountType": "fintech",
     "assetName": "Quỹ Đầu Tư Cổ Phiếu Kinh Tế Hiện Đại VinaCapital",
     "assetSymbol": "VMEEF",
@@ -544,7 +544,7 @@
     ]
   },
   {
-    "accountName": "Tikop",
+    "accountName": "Fmarket",
     "accountType": "fintech",
     "assetName": "Quỹ Đầu Tư Trái Phiếu Lighthouse",
     "assetSymbol": "LHBF",
@@ -566,7 +566,7 @@
     ]
   },
   {
-    "accountName": "Tikop",
+    "accountName": "Fmarket",
     "accountType": "fintech",
     "assetName": "Quỹ Đầu tư Trái phiếu Dragon Capital",
     "assetSymbol": "DCBF",
@@ -588,7 +588,7 @@
     ]
   },
   {
-    "accountName": "Tikop",
+    "accountName": "Fmarket",
     "accountType": "fintech",
     "assetName": "Quỹ Đầu tư Doanh nghiệp Hàng đầu Dragon Capital",
     "assetSymbol": "DCDE",

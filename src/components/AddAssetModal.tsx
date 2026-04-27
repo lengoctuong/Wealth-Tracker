@@ -53,7 +53,7 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
         result = await marketService.getStockPrice(upperSymbol);
       } else if (category === 'fund') {
         result = await marketService.getFundPrice(upperSymbol);
-      } else if (category === 'coin' || category === 'crypto') {
+      } else if (category === 'coin') {
         const ticker = upperSymbol.includes('-') ? upperSymbol : `${upperSymbol}-USD`;
         result = await marketService.getCryptoPrice(ticker);
       } else if (category === 'gold') {
@@ -121,9 +121,9 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
     switch (type) {
       case "brokerage": return [
         { value: "stock", label: "Cổ phiếu" },
-        { value: "etf", label: "Chứng chỉ quỹ ETF" },
+        { value: "etf", label: "ETF" },
         { value: "cash", label: "Tiền mặt" },
-        { value: "saving", label: "Tiền gửi tiết kiệm" }
+        { value: "saving", label: "Tiết kiệm" }
       ];
       case "crypto": return [
         { value: "usdt", label: "USDT / Stablecoin" },
@@ -132,15 +132,15 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
       ];
       case "ewallet": return [
         { value: "cash", label: "Tiền mặt" },
-        { value: "saving", label: "Túi thần tài / Tiết kiệm" }
+        { value: "saving", label: "Tiết kiệm" }
       ];
       case "fintech": return [
         { value: "saving", label: "Tiết kiệm" },
-        { value: "fund", label: "Chứng chỉ quỹ" }
+        { value: "fund", label: "Quỹ mở" }
       ];
       case "bank": return [
         { value: "cash", label: "Tiền mặt" },
-        { value: "saving", label: "Gửi tiết kiệm" }
+        { value: "saving", label: "Tiết kiệm" }
       ];
       case "polymarket": return [
         { value: "position", label: "Vị thế (Position)" },
@@ -173,15 +173,18 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
     try {
       const finalName = (isInvest && !isSimpleAsset) ? symbol.toUpperCase() : (customName || categories.find(c => c.value === category)?.label || category);
       
+      const numBalance = (isInvest && !isSimpleAsset) ? 0 : Number(balance) || 0;
+      const numPurchasePrice = isSimpleAsset ? 0 : Number(purchasePrice) || (category === 'saving' ? numBalance : Number(purchasePrice) || numBalance);
+      
       const assetData: any = {
         accountId,
         category,
         name: finalName,
         currency,
-        balance: (isInvest && !isSimpleAsset) ? 0 : Number(balance) || 0,
-        purchasePrice: isSimpleAsset ? 0 : Number(purchasePrice) || 0,
+        balance: numBalance,
+        purchasePrice: numPurchasePrice,
         purchaseDate: isInvest ? purchaseDate : undefined,
-        currentPrice: isSimpleAsset ? 0 : (Number(currentPrice) || Number(purchasePrice) || Number(balance) || 0),
+        currentPrice: isSimpleAsset ? 0 : (Number(currentPrice) || numPurchasePrice || numBalance || 0),
         interestRate: category === 'saving' ? Number(interestRate) || 0 : 0,
       };
 
@@ -268,10 +271,16 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
           )}
 
           {(!isInvest || isSimpleAsset) && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Số dư hiện tại</Label>
-                <Input type="number" step="any" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="0" required />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Số dư hiện tại</Label>
+                  <Input type="number" step="any" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="0" required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Giá trị lúc đầu (Vốn gốc)</Label>
+                  <Input type="number" step="any" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="0" />
+                </div>
               </div>
               {category === 'saving' && (
                 <div className="space-y-2">
@@ -282,10 +291,10 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
             </div>
           )}
 
-          {!isSimpleAsset && category !== 'saving' && (
+          {isInvest && !isSimpleAsset && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{isInvest ? "Đơn giá mua" : "Giá trị lúc đầu"}</Label>
+                <Label>Đơn giá mua</Label>
                 <Input type="number" step="any" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-2">

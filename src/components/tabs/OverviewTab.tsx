@@ -12,6 +12,7 @@ import { formatCurrency, getAssetValue, getStartDateForRange, findStartIndexForD
 import { Button } from "../ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { PerformanceTable } from "../PerformanceTable";
+import { ConfirmModal } from "../ConfirmModal";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#ffc658', '#d0ed57', '#a4de6c'];
 
@@ -23,6 +24,11 @@ interface Props {
   vnIndex: MarketData | null;
   investmentTransactions?: InvestmentTransaction[];
   isBackfilling?: boolean;
+  isSyncingMarketData?: boolean;
+  syncProgress?: number;
+  syncStatus?: string;
+  backfillProgress?: number;
+  backfillStatus?: string;
   onBackfill?: (txs: InvestmentTransaction[]) => void;
   usdtRate?: number;
   showValues?: boolean;
@@ -36,6 +42,11 @@ export function OverviewTab({
   vnIndex,
   investmentTransactions = [],
   isBackfilling = false,
+  isSyncingMarketData = false,
+  syncProgress = 0,
+  syncStatus = "",
+  backfillProgress = 0,
+  backfillStatus = "",
   onBackfill,
   usdtRate = 25500,
   showValues = true
@@ -43,6 +54,7 @@ export function OverviewTab({
   const [performanceTimeRange, setPerformanceTimeRange] = React.useState('30d');
   const [isTwrrOpen, setIsTwrrOpen] = React.useState(false);
   const [isDebugOpen, setIsDebugOpen] = React.useState(false);
+  const [isConfirmSyncOpen, setIsConfirmSyncOpen] = React.useState(false);
   const filteredAssets = useMemo(() => {
     return assets.filter(a => !a.isFinished && (a.quantity === undefined || a.quantity > 0 || !["stock", "etf", "coin", "crypto", "fund", "position"].includes(a.category)));
   }, [assets]);
@@ -352,10 +364,6 @@ export function OverviewTab({
         if (prev.value! > 0) {
           const periodReturn = (data.value! - cashFlow - prev.value!) / prev.value!;
           cumulativeReturn *= (1 + periodReturn);
-        } else if (prev.value === 0 && data.value! > 0 && cashFlow > 0) {
-          // Handle case where account was empty and new funds are added
-          // The return for this specific period is 0 (just a deposit), but we start tracking again
-          // cumulativeReturn remains unchanged
         }
       } else if (i === 0 && cumulativeCashFlow === 0 && data.value! > 0) {
         // If no transactions but we have initial value, treat initial value as initial cash flow
@@ -364,16 +372,20 @@ export function OverviewTab({
 
       return {
         date,
-        value: data.value!,
+        value: data.value! || 0,
         // Net Invested Capital (Vốn đầu tư ròng)
         cost: cumulativeCashFlow,
         // Total Profit = Current Value - Net Invested Capital
-        profit: data.value! - cumulativeCashFlow,
+        profit: (data.value! || 0) - cumulativeCashFlow,
         profitPct: (cumulativeReturn - 1) * 100
       };
     });
+
+    // Filter to only show data from the first day the user has investment value
+    const firstDataIndex = resultData.findIndex(d => d.value > 0);
+    const displayData = firstDataIndex !== -1 ? resultData.slice(firstDataIndex) : resultData;
     
-    return downsampleData(resultData);
+    return downsampleData(displayData);
   }, [history, vnIndexHistory, investmentTransactions, assets, usdtRate]);
 
   // Calculate Current Total Profit Breakdown
@@ -581,21 +593,51 @@ export function OverviewTab({
                 ))}
               </div>
             </div>
-            {onBackfill && (
-              <div className="flex flex-col items-end gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onBackfill(investmentTransactions)}
-                  disabled={isBackfilling}
-                  className="h-8 text-[10px] font-bold uppercase tracking-wider"
-                >
-                  <RefreshCw className={`w-3 h-3 mr-1.5 ${isBackfilling ? 'animate-spin' : ''}`} />
-                  {isBackfilling ? 'Đang đồng bộ...' : 'Đồng bộ lịch sử'}
-                </Button>
-                <p className="text-[9px] text-gray-400 max-w-[200px] text-right">
-                  Cập nhật giá hiện tại và tính toán lại toàn bộ lịch sử tài sản từ giao dịch đầu tiên.
-                </p>
+            {(onBackfill || isBackfilling || isSyncingMarketData) && (
+              <div className="flex items-center gap-4">
+                {(isBackfilling || isSyncingMarketData) && (
+                  <div className="flex flex-col items-end gap-1 text-right">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-tight">
+                      {isSyncingMarketData ? (
+                        <>
+                          <span className="bg-blue-100 px-1.5 py-0.5 rounded">Bước 1/2</span>
+                          <span>{syncStatus || "Đang cập nhật giá thị trường..."}</span>
+                          <span className="text-blue-400">({syncProgress}%)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Bước 2/2</span>
+                          <span>{backfillStatus || "Đang đồng bộ lịch sử..."}</span>
+                          <span className="text-green-400">({backfillProgress}%)</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="w-48 h-1.5 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                      <div 
+                        className={`h-full transition-all duration-300 ${isSyncingMarketData ? 'bg-blue-500' : 'bg-green-500'}`}
+                        style={{ width: `${isSyncingMarketData ? syncProgress : backfillProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex flex-col items-end gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsConfirmSyncOpen(true)}
+                    disabled={isBackfilling || isSyncingMarketData}
+                    className="h-8 text-[10px] font-bold uppercase tracking-wider relative overflow-hidden group"
+                  >
+                    <RefreshCw className={`w-3 h-3 mr-1.5 ${isBackfilling || isSyncingMarketData ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                    {isSyncingMarketData ? 'Đang lưu giá...' : isBackfilling ? 'Đang đồng bộ...' : 'Đồng bộ lịch sử'}
+                  </Button>
+                  {!isBackfilling && !isSyncingMarketData && (
+                    <p className="text-[9px] text-gray-400 max-w-[200px] text-right">
+                      Cập nhật giá và tính toán lại toàn bộ lịch sử tài sản.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </CardHeader>
@@ -1014,6 +1056,19 @@ export function OverviewTab({
           </div>
         )}
       </details>
+      
+      <ConfirmModal
+        isOpen={isConfirmSyncOpen}
+        onClose={() => setIsConfirmSyncOpen(false)}
+        onConfirm={() => {
+          setIsConfirmSyncOpen(false);
+          onBackfill?.(investmentTransactions);
+        }}
+        title="Đồng bộ lịch sử tài sản"
+        description="Quy trình này sẽ cập nhật giá thị trường mới nhất và tính toán lại toàn bộ lịch sử biến động từ giao dịch đầu tiên. Việc này có thể mất vài phút tùy vào số lượng giao dịch của bạn. Bạn có muốn tiếp tục?"
+        confirmText="Đồng bộ"
+        confirmVariant="default"
+      />
     </div>
   );
 }

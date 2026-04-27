@@ -42,17 +42,18 @@ export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) 
   
   const { accounts, addAccount } = useAccounts();
   const { assets, addAsset, updateAsset } = useAssets();
-  const { addInvestmentTransaction } = useInvestmentTransactions();
+  const { transactions: investmentTransactions, addInvestmentTransaction } = useInvestmentTransactions();
 
   const handleBulkImport = async (rawData: ImportAsset[]) => {
     setLoading(true);
     let successCount = 0;
+    let skipCount = 0;
     let errorCount = 0;
     const importedAssets: Asset[] = [];
     
     // Filter only investment assets
     const data = rawData.filter(item => 
-      ["stock", "etf", "coin", "fund"].includes(item.assetCategory)
+      ["stock", "etf", "coin", "fund"].includes(item.assetCategory.toLowerCase())
     );
 
     if (data.length === 0) {
@@ -115,18 +116,35 @@ export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) 
               importedAssets.push({ id: assetId, ...assetData } as Asset);
             }
           } else {
-            await updateAsset(assetId, {
-              currentPrice: lastPrice,
-              name: item.assetName,
-            });
+            // Only update if metadata changed
+            if (asset.currentPrice !== lastPrice || asset.name !== item.assetName) {
+              await updateAsset(assetId, {
+                currentPrice: lastPrice,
+                name: item.assetName,
+              });
+            }
             importedAssets.push({ id: assetId, ...assetData, currentPrice: lastPrice, name: item.assetName } as Asset);
           }
 
           // 4. Add all transactions (FIFO logic is inside addInvestmentTransaction)
           if (assetId) {
-            // Sort transactions by date to ensure FIFO works correctly during import
             const sortedTxs = [...item.transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
             for (const tx of sortedTxs) {
+              // Check for duplicate transaction
+              const isDuplicate = (investmentTransactions || []).some(existing => 
+                existing.assetId === assetId &&
+                existing.date === tx.date &&
+                existing.type === tx.type &&
+                existing.quantity === tx.quantity &&
+                Math.abs(existing.price - tx.price) < 0.01
+              );
+
+              if (isDuplicate) {
+                skipCount++;
+                continue;
+              }
+
               await addInvestmentTransaction({
                 assetId: assetId,
                 type: tx.type,
@@ -138,13 +156,17 @@ export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) 
           }
 
           successCount++;
-        } catch (err) {
+        } catch (err: any) {
           console.error(`Error importing asset ${item.assetSymbol}:`, err);
+          // If it's a quota error, stop the whole process and bubble up
+          if (err.code === 'resource-exhausted' || err.message?.includes('quota')) {
+            throw err;
+          }
           errorCount++;
         }
       }
 
-      toast.success(`Đã nhập thành công ${successCount} tài sản. ${errorCount > 0 ? `Có ${errorCount} lỗi.` : ""}`);
+      toast.success(`Đã nhập thành công ${successCount} tài sản. ${skipCount > 0 ? `Đã bỏ qua ${skipCount} giao dịch trùng.` : ""} ${errorCount > 0 ? `Có ${errorCount} lỗi.` : ""}`);
       
       if (onSyncMarketPrices && successCount > 0) {
         setStatusText("Đang đồng bộ giá thị trường...");
@@ -153,8 +175,13 @@ export function BulkImportModal({ isOpen, onClose, onSyncMarketPrices }: Props) 
       }
 
       if (errorCount === 0) onClose();
-    } catch (error) {
-      toast.error("Lỗi hệ thống khi nhập dữ liệu");
+    } catch (error: any) {
+      console.error("Import error:", error);
+      if (error.code === 'resource-exhausted' || error.message?.includes('quota')) {
+        toast.error("Hết hạn mức ghi Firestore (20k/ngày). Vui lòng thử lại vào ngày mai!");
+      } else {
+        toast.error("Lỗi hệ thống khi nhập dữ liệu");
+      }
     } finally {
       setLoading(false);
       setProgress(0);

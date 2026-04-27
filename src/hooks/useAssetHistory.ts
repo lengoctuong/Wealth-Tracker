@@ -27,6 +27,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
   const [loading, setLoading] = useState(true);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState(0);
+  const [backfillStatus, setBackfillStatus] = useState("");
 
   useEffect(() => {
     if (!user) {
@@ -183,22 +184,16 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
         }
       }
 
-      // 3. Delete old history first
+      // 3. Load existing history into memory for comparison (to save writes)
       const oldHistoryQ = query(collection(db, "assetHistory"), where("userId", "==", user.uid));
       const oldHistorySnapshot = await getDocs(oldHistoryQ);
-      let deleteBatch = writeBatch(db);
-      let deleteCount = 0;
+      const existingHistoryMap = new Map<string, any>();
+      oldHistorySnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        existingHistoryMap.set(`${data.accountId}_${data.date}`, { id: doc.id, ...data });
+      });
       
-      for (const docSnap of oldHistorySnapshot.docs) {
-        deleteBatch.delete(docSnap.ref);
-        deleteCount++;
-        if (deleteCount >= 400) {
-          await deleteBatch.commit();
-          deleteBatch = writeBatch(db);
-          deleteCount = 0;
-        }
-      }
-      if (deleteCount > 0) await deleteBatch.commit();
+      const seenDocKeys = new Set<string>();
 
       // 4. Iterate day by day and create new snapshots
       let currentDate = new Date(startDate);
@@ -220,6 +215,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
         }
 
         const dateStr = currentDate.toISOString().split('T')[0];
+        setBackfillStatus(`Đang tính lịch sử ngày ${dateStr}...`);
         
         // Calculate holdings on this date
         const holdings: Record<string, { quantity: number, cost: number, asset: Asset }> = {};
@@ -340,39 +336,67 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
 
         // Create snapshots for this date
         Object.entries(accountData).forEach(([accountId, data]) => {
-          const newRef = doc(collection(db, "assetHistory"));
-          currentBatch.set(newRef, {
-            userId: user.uid,
-            accountId,
-            date: dateStr,
-            totalValue: data.value,
-            totalCost: data.cost,
-            realizedProfit: data.realizedProfit || 0,
-            profit: data.value - data.cost,
-            vnIndex,
-            timestamp: new Date().toISOString()
-          });
-          batchCount++;
+          const docKey = `${accountId}_${dateStr}`;
+          seenDocKeys.add(docKey);
           
-          if (batchCount >= 400) {
-            // Commit batch if it reaches limit
+          const existing = existingHistoryMap.get(docKey);
+          const totalValue = Math.round(data.value);
+          const totalCost = Math.round(data.cost);
+          const realizedProfit = Math.round(data.realizedProfit);
+
+          // Only write if something has changed
+          if (!existing || 
+              existing.totalValue !== totalValue || 
+              existing.totalCost !== totalCost || 
+              existing.realizedProfit !== realizedProfit ||
+              existing.vnIndex !== vnIndex) {
+            
+            const docId = `${user.uid}_${accountId}_${dateStr}`;
+            const docRef = doc(db, "assetHistory", docId);
+            
+            currentBatch.set(docRef, {
+              userId: user.uid,
+              accountId,
+              date: dateStr,
+              totalValue,
+              totalCost,
+              realizedProfit,
+              vnIndex,
+              timestamp: new Date().toISOString()
+            });
+            
+            batchCount++;
+            if (batchCount >= 400) {
+              currentBatch.commit();
+              currentBatch = writeBatch(db);
+              batchCount = 0;
+            }
           }
         });
-
-        if (batchCount >= 400) {
-          await currentBatch.commit();
-          currentBatch = writeBatch(db);
-          batchCount = 0;
-        }
 
         currentDate.setDate(currentDate.getDate() + 1);
         processedDays++;
         setBackfillProgress(Math.round((processedDays / totalDays) * 100));
       }
 
-      if (batchCount > 0) {
-        await currentBatch.commit();
-      }
+      // 5. Delete orphaned records (dates/accounts that no longer exist in our calculation)
+      let deleteBatch = writeBatch(db);
+      let deleteCount = 0;
+      
+      existingHistoryMap.forEach((value, key) => {
+        if (!seenDocKeys.has(key)) {
+          deleteBatch.delete(doc(db, "assetHistory", value.id));
+          deleteCount++;
+          if (deleteCount >= 400) {
+            deleteBatch.commit();
+            deleteBatch = writeBatch(db);
+            deleteCount = 0;
+          }
+        }
+      });
+      
+      if (deleteCount > 0) await deleteBatch.commit();
+      if (batchCount > 0) await currentBatch.commit();
       
       console.log("Backfill complete");
     } catch (error) {
@@ -396,5 +420,5 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
     }
   }, [assets, vnIndexValue, usdtRate]);
 
-  return { history, loading, isBackfilling, backfillProgress, snapshotPortfolio, backfillHistory };
+  return { history, loading, isBackfilling, backfillProgress, backfillStatus, snapshotPortfolio, backfillHistory };
 };

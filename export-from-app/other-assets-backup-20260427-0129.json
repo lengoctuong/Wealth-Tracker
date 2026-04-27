@@ -1,0 +1,29 @@
+{
+  "accounts": [
+    {
+      "id": "7MLPHgkr2z0rlNMzCRlH",
+      "type": "brokerage",
+      "createdAt": "2026-04-25T15:11:50.833Z",
+      "userId": "njYF3VxMD8MA4mB6Ih40Yr4w5jG2",
+      "name": "VNDIRECT"
+    },
+    {
+      "id": "LIWuhQtNlt3EQLdbaZGo",
+      "type": "brokerage",
+      "createdAt": "2026-04-25T15:12:47.278Z",
+      "userId": "njYF3VxMD8MA4mB6Ih40Yr4w5jG2",
+      "name": "SSI"
+    },
+    {
+      "id": "vL3sIrah7lPrlMlL7nko",
+      "createdAt": "2026-04-25T15:13:40.542Z",
+      "type": "fintech",
+      "name": "Tikop",
+      "userId": "njYF3VxMD8MA4mB6Ih40Yr4w5jG2"
+    }
+  ],
+  "assets": [],
+  "transactions": [],
+  "exportDate": "2026-04-26T18:30:57.354Z",
+  "version": "1.0"
+}

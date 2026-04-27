@@ -8,9 +8,19 @@ interface Props {
   onConfirm: () => void;
   title: string;
   description: string;
+  confirmText?: string;
+  confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
 }
 
-export function ConfirmModal({ isOpen, onClose, onConfirm, title, description }: Props) {
+export function ConfirmModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  description,
+  confirmText = "Xóa",
+  confirmVariant = "destructive"
+}: Props) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
@@ -18,9 +28,15 @@ export function ConfirmModal({ isOpen, onClose, onConfirm, title, description }:
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <DialogFooter className="pt-4">
+        <DialogFooter className="pt-4 flex gap-2">
           <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
-          <Button type="button" variant="destructive" onClick={() => { onConfirm(); onClose(); }}>Xóa</Button>
+          <Button
+            type="button"
+            variant={confirmVariant}
+            onClick={() => { onConfirm(); onClose(); }}
+          >
+            {confirmText}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
