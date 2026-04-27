@@ -503,34 +503,34 @@ export function InvestmentTab({
                                   <Badge variant="outline" className="bg-gray-50 text-xs">{getCategoryLabel(asset.category, type)}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right text-sm">
-                                  {isInvest && !isSimpleAsset ? (showValues ? asset.quantity?.toLocaleString() : "****") : (['bot', 'position'].includes(asset.category) ? '-' : (showValues ? (asset.balance || 0).toLocaleString() : "****"))}
+                                  {isInvest && !isSimpleAsset ? (showValues ? asset.quantity?.toLocaleString() : "****") : (['bot', 'position', 'cash', 'saving', 'usdt', 'usdc'].includes(asset.category) ? '-' : (showValues ? (asset.balance || 0).toLocaleString() : "****"))}
                                 </TableCell>
                                 <TableCell className="text-right text-sm">
-                                  {(isInvest && !isSimpleAsset) || ['bot', 'position'].includes(asset.category) ? (
+                                  {(isInvest && !isSimpleAsset) || ['bot', 'position', 'cash', 'saving', 'usdt', 'usdc'].includes(asset.category) ? (
                                     <div className="flex flex-col items-end">
-                                      <span>{showValues ? formatCurrency(['bot', 'position'].includes(asset.category) ? (asset.purchasePrice || 0) : purchasePrice, asset.currency) : "****"}</span>
+                                      <span>{showValues ? formatCurrency(['bot', 'position', 'cash', 'saving', 'usdt', 'usdc'].includes(asset.category) ? (asset.purchasePrice || 0) : purchasePrice, asset.currency) : "****"}</span>
                                       {asset.currency !== 'VND' && showValues && (
                                         <span className="text-[10px] text-gray-400">
-                                          ≈ {formatCurrency((['bot', 'position'].includes(asset.category) ? (asset.purchasePrice || 0) : purchasePrice) * (['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1), 'VND')}
+                                          ≈ {formatCurrency((['bot', 'position', 'cash', 'saving', 'usdt', 'usdc'].includes(asset.category) ? (asset.purchasePrice || 0) : purchasePrice) * (['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1), 'VND')}
                                         </span>
                                       )}
                                     </div>
                                   ) : '-'}
                                 </TableCell>
                                 <TableCell className="text-right text-sm">
-                                  {(isInvest && !isSimpleAsset) || ['bot', 'position'].includes(asset.category) ? (
+                                  {(isInvest && !isSimpleAsset) || ['bot', 'position', 'cash', 'saving', 'usdt', 'usdc'].includes(asset.category) ? (
                                     <div className="flex flex-col items-end">
-                                      <span>{showValues ? formatCurrency(['bot', 'position'].includes(asset.category) ? (asset.balance || 0) : (asset.currentPrice || 0), asset.currency) : "****"}</span>
+                                      <span>{showValues ? formatCurrency(['bot', 'position', 'cash', 'saving', 'usdt', 'usdc'].includes(asset.category) ? (asset.balance || 0) : (asset.currentPrice || 0), asset.currency) : "****"}</span>
                                       {asset.currency !== 'VND' && showValues && (
                                         <span className="text-[10px] text-gray-400">
-                                          ≈ {formatCurrency((['bot', 'position'].includes(asset.category) ? (asset.balance || 0) : (asset.currentPrice || 0)) * (['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1), 'VND')}
+                                          ≈ {formatCurrency((['bot', 'position', 'cash', 'saving', 'usdt', 'usdc'].includes(asset.category) ? (asset.balance || 0) : (asset.currentPrice || 0)) * (['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1), 'VND')}
                                         </span>
                                       )}
                                     </div>
                                   ) : '-'}
                                 </TableCell>
                                 <TableCell className="text-right text-sm">
-                                  {isCashOrSaving ? (
+                                  {['cash', 'saving', 'usdt', 'usdc'].includes(asset.category) ? (
                                     (() => {
                                       const initial = asset.purchasePrice || 0;
                                       const current = asset.balance || 0;
@@ -553,7 +553,7 @@ export function InvestmentTab({
                                               {growthPct >= 0 ? "+" : ""}{growthPct.toFixed(2)}%
                                             </span>
                                             <span className={`text-[10px] ${growthPct >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                              {growthPct >= 0 ? "+" : ""}{showValues ? formatCurrency(currentVal - purchasePrice, asset.currency) : "****"}
+                                              {growthPct >= 0 ? "+" : ""}{showValues ? formatCurrency((currentVal - purchasePrice) * (['bot', 'position'].includes(asset.category) ? 1 : (asset.quantity || 0)), asset.currency) : "****"}
                                             </span>
                                           </div>
                                         );

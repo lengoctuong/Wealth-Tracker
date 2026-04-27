@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Trash2, Wallet, Landmark, Home, MoreHorizontal, Edit2, Coins, Target } from "lucide-react";
+import { Trash2, Edit2, TrendingUp, Coins, Landmark, CreditCard, Wallet, MoreHorizontal } from "lucide-react";
 import { Account, AccountType } from "../../hooks/useAccounts";
 import { Asset } from "../../hooks/useAssets";
 import { Transaction } from "../../hooks/useTransactions";
@@ -11,7 +11,7 @@ import { ConfirmModal } from "../ConfirmModal";
 import { formatCurrency, getAssetValue, getCategoryLabel } from "../../lib/utils";
 
 interface Props {
-  type: AccountType | 'other';
+  type: AccountType;
   title: string;
   accounts: Account[];
   assets: Asset[];
@@ -24,35 +24,29 @@ interface Props {
   onEditAccount: (account: Account) => void;
 }
 
-export function StandardTab({ 
-  type, 
-  title, 
-  accounts, 
-  assets, 
+export function StandardTab({
+  type,
+  title,
+  accounts,
+  assets,
   transactions,
   usdtRate = 25500,
   showValues = true,
-  onDeleteAsset, 
+  onDeleteAsset,
   onDeleteAccount,
   onEditAsset,
   onEditAccount
 }: Props) {
-  const [deleteAccountInfo, setDeleteAccountInfo] = useState<{id: string, name: string} | null>(null);
-  const [deleteAssetInfo, setDeleteAssetInfo] = useState<{id: string, name: string} | null>(null);
+  const [deleteAccountInfo, setDeleteAccountInfo] = useState<{ id: string, name: string } | null>(null);
+  const [deleteAssetInfo, setDeleteAssetInfo] = useState<{ id: string, name: string } | null>(null);
 
-  const filteredAccounts = type === 'other' 
-    ? accounts.filter(a => !['brokerage', 'crypto', 'fintech', 'ewallet', 'bank', 'polymarket'].includes(a.type))
-    : accounts.filter(a => a.type === type);
+  const filteredAccounts = accounts.filter(a => a.type === type || (type === 'other' && a.type === 'cash'));
 
   const getAssetIcon = (category: string) => {
     switch (category) {
       case 'cash': return <Wallet className="w-4 h-4" />;
-      case 'deposit': return <Landmark className="w-4 h-4" />;
       case 'saving': return <Landmark className="w-4 h-4" />;
-      case 'payment': return <Wallet className="w-4 h-4" />;
-      case 'usdt': return <Coins className="w-4 h-4" />;
-      case 'usdc': return <Coins className="w-4 h-4" />;
-      case 'position': return <Target className="w-4 h-4" />;
+      case 'gold': return <Coins className="w-4 h-4" />;
       default: return <MoreHorizontal className="w-4 h-4" />;
     }
   };
@@ -66,59 +60,57 @@ export function StandardTab({
       {filteredAccounts.map(account => {
         const accountAssets = assets.filter(a => a.accountId === account.id);
         const totalValue = accountAssets.reduce((sum, asset) => sum + getAssetValue(asset, usdtRate), 0);
-        
+
         return (
-          <Card key={account.id} className="border-none shadow-md overflow-hidden">
-            <CardHeader className="bg-gray-50 border-b border-gray-100 flex flex-row items-center justify-between py-4">
+          <Card key={account.id} className="border-none shadow-sm overflow-hidden">
+            <CardHeader className="bg-gray-50/50 border-b border-gray-100 flex flex-row items-center justify-between py-3 px-6">
               <div>
-                <CardTitle className="text-lg font-semibold text-gray-800">{account.name}</CardTitle>
-                <p className="text-sm text-gray-500 mt-1">Tổng: <span className="font-semibold text-primary">{showValues ? formatCurrency(totalValue, 'VND') : "****"}</span></p>
+                <CardTitle className="text-base font-semibold text-gray-800">{account.name}</CardTitle>
+                <p className="text-xs text-gray-500 mt-0.5">Tổng số dư: <span className="font-bold text-primary">{showValues ? formatCurrency(totalValue, 'VND') : "****"}</span></p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" className="text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEditAccount(account)}>
-                  <Edit2 className="w-4 h-4 mr-2" /> Sửa
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs" onClick={() => onEditAccount(account)}>
+                  <Edit2 className="w-3.5 h-3.5 mr-1" /> Sửa
                 </Button>
-                <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteAccountInfo({ id: account.id, name: account.name })}>
-                  <Trash2 className="w-4 h-4 mr-2" /> Xóa nguồn
+                <Button variant="ghost" size="sm" className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 text-xs" onClick={() => setDeleteAccountInfo({ id: account.id, name: account.name })}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1" /> Xóa
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Tên khoản mục</TableHead>
+                      <TableHead className="pl-6">Tên khoản mục</TableHead>
                       <TableHead>Phân loại</TableHead>
                       <TableHead className="text-right">Lãi suất</TableHead>
                       <TableHead className="text-right">Thay đổi</TableHead>
-                      <TableHead className="text-right">Số dư</TableHead>
+                      <TableHead className="text-right pr-6">Số dư</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {accountAssets.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-gray-500 py-4">Chưa có khoản mục nào</TableCell>
+                        <TableCell colSpan={6} className="text-center text-gray-400 py-6 text-sm italic">Chưa có khoản mục nào</TableCell>
                       </TableRow>
                     ) : (
                       accountAssets.map(asset => {
                         return (
-                          <TableRow key={asset.id}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                          <TableRow key={asset.id} className="hover:bg-gray-50/50">
+                            <TableCell className="font-medium pl-6 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
                                   {getAssetIcon(asset.category)}
                                 </div>
-                                <div>
-                                  <p className="text-sm">{asset.name}</p>
-                                </div>
+                                <span className="text-sm">{asset.name}</span>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="bg-gray-50 text-xs">{getCategoryLabel(asset.category, type)}</Badge>
+                              <Badge variant="outline" className="bg-white text-[10px] font-medium py-0 h-5">{getCategoryLabel(asset.category, type)}</Badge>
                             </TableCell>
-                            <TableCell className="text-right text-xs font-medium text-gray-600">
+                            <TableCell className="text-right text-xs font-medium text-slate-500">
                               {asset.category === 'cash' ? '0%' : (asset.interestRate ? `${asset.interestRate}%` : '-')}
                             </TableCell>
                             <TableCell className="text-right">
@@ -134,17 +126,17 @@ export function StandardTab({
                                 );
                               })()}
                             </TableCell>
-                            <TableCell className="text-right font-semibold text-primary text-sm">
+                            <TableCell className="text-right font-bold text-slate-900 text-sm pr-6">
                               <div className="flex flex-col items-end">
                                 <span>{showValues ? formatCurrency(getAssetValue(asset, 1), asset.currency) : "****"}</span>
                                 {asset.currency !== 'VND' && showValues && (
-                                  <span className="text-[10px] text-gray-400">
+                                  <span className="text-[10px] text-gray-400 font-normal">
                                     ≈ {formatCurrency(getAssetValue(asset, usdtRate), 'VND')}
                                   </span>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="pr-6 text-right">
                               <div className="flex justify-end gap-1">
                                 <Button variant="ghost" size="icon" onClick={() => onEditAsset(asset)} className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50">
                                   <Edit2 className="w-3 h-3" />

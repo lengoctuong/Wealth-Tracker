@@ -2,34 +2,31 @@
 
 Tất cả những thay đổi quan trọng về tính năng, logic và hiệu năng của ứng dụng sẽ được ghi nhận tại đây.
 
-## [2.4.0] - 2026-04-27 (Chuẩn hóa các tài sản tĩnh & Nhất quán Dữ liệu)
+## [2.4.0] - 2026-04-27 (Hệ thống Dashboard Lai & Chuẩn hóa Đầu tư)
 
-### 🏦 Chuẩn hóa Tài sản tĩnh (Static Assets Standardization)
-- **Tách biệt hoàn toàn:** Phân định rõ ràng giữa nhóm Tài sản Đầu tư (theo dõi theo giao dịch) và Tài sản Tĩnh (theo dõi theo số dư).
-- **Bổ sung cột nghiệp vụ:** Hỗ trợ hiển thị cột **Lãi suất** (cho Tiết kiệm) và cột **Thay đổi** giá trị so với vốn gốc để người dùng dễ dàng theo dõi hiệu quả của các tài sản không biến động theo thị trường.
-- **Tối ưu hiển thị:** Tự động ẩn các trường dữ liệu không cần thiết (như Symbol) đối với nhóm tài sản tĩnh.
+### 🚀 Hệ thống Dashboard "Lai" (Hybrid Dashboard Logic)
+- **Tab Đầu tư (CK, Crypto, Fintech):** Triển khai bảng 7 cột chi tiết. Theo dõi **Vốn gốc (Purchase Price)** đối lập với **Giá trị hiện tại (Current Price)** cho tất cả loại tài sản, bao gồm cả Tiền mặt/USDT.
+- **Tab Quản lý (Ngân hàng, Ví, Khác):** Duy trì giao diện tối giản tập trung vào Số dư và Lãi suất, giúp phân tách rõ ràng mục đích sử dụng tiền.
 
-### 🏗️ Tái cấu trúc & Nhất quán (Data Integrity)
-- **Chuẩn hóa Phân loại:**
-    - Chuyển `bot` từ tài sản đầu tư sang tài sản tĩnh (giống tiền mặt/tiết kiệm), loại bỏ việc lấy giá tự động không cần thiết.
-    - Nhất quán hóa `coin` và `crypto` về một mã duy nhất là `coin`.
-    - Loại bỏ phân loại `position` (Vị thế) do thiếu các tham số tính toán chuyên sâu (leverage, entry price).
-- **Phát hiện trùng lặp:** Thêm logic kiểm tra giao dịch đã tồn tại trong lúc Import Bulk để tránh dữ liệu rác.
+### 🤖 Hỗ trợ Tài sản đặc thù (Bot & Position)
+- **Simple Investment Logic:** Thiết kế riêng cho các tài sản không có số lượng cụ thể (Bot giao dịch, Vị thế Polymarket).
+- **Tối ưu hiển thị:** Ẩn cột số lượng, hiển thị chênh lệch (Lãi/Lỗ) trực tiếp giữa Tổng số dư và Vốn đầu tư.
+
+### 🏗️ Chuẩn hóa & Nhất quán (Data Integrity)
+- **Coin Migration:** Hợp nhất hoàn toàn danh mục `crypto` về mã chuẩn là `coin`.
+- **Hồi sinh `position`:** Sử dụng lại mã này dành riêng cho các vị thế dự đoán/Speculative.
+- **Vốn gốc bắt buộc:** Bổ sung trường `purchasePrice` cho tài sản tĩnh trong file Import để đảm bảo tính toán hiệu suất chính xác ngay từ đầu.
 
 ### 📤 Tính di động (Data Portability)
-- **Portable Export/Import:** Chỉnh sửa logic Xuất dữ liệu để loại bỏ ID hệ thống, giúp file JSON có thể nhập vào bất kỳ tài khoản người dùng nào khác mà vẫn giữ nguyên cấu trúc.
+- **Portable Export/Import:** Loại bỏ ID hệ thống khi xuất dữ liệu, giúp file JSON có thể nhập vào bất kỳ tài khoản nào khác mà không gây xung đột.
 
 ### 💎 Tối ưu hóa Firestore (Cost Saving)
-- **Smart Sync (Dirty Check):** Triển khai cơ chế kiểm tra dữ liệu trước khi ghi. Hệ thống chỉ ghi vào DB nếu dữ liệu lịch sử tài sản có thay đổi, giúp giảm hơn 90% số lượng lượt ghi (Write operations), bảo vệ hạn mức 20k/ngày của Firebase Free Tier.
-- **Phát hiện Quota Exceeded:** Thêm thông báo lỗi chi tiết khi hết hạn mức ghi Firestore để người dùng chủ động biết nguyên nhân.
+- **Smart Sync (Dirty Check):** Chỉ ghi dữ liệu lịch sử nếu có thay đổi thực sự, giúp giảm hơn 90% số lượng lượt ghi (Write operations).
+- **Quota Management:** Thêm thông báo chi tiết khi tài khoản Firebase chạm hạn mức miễn phí (Free Tier).
 
-### 🎨 Trải nghiệm người dùng (UX)
-- **Sync Confirmation:** Thêm Modal xác nhận trước khi đồng bộ toàn bộ tài sản với các tùy chọn thông báo linh hoạt.
-- **Cải thiện Modal Nhập:** Cho phép đóng cửa sổ nhập "Tài sản khác" trong lúc đang tải dữ liệu.
-
-### 🛠️ Sửa lỗi (Bug Fixes)
-- **Fix Crash Import:** Sửa lỗi `undefined` khi kiểm tra giao dịch trùng lặp trong trường hợp người dùng chưa có dữ liệu lịch sử.
-- **Fix Props Mismatch:** Sửa lỗi truyền props `confirmText` và `confirmVariant` trong component `ConfirmModal`.
+### 🎨 Cải thiện Trải nghiệm (UX)
+- **AddAssetModal thông minh:** Tự động điền (Auto-fill) tiền tệ USDT và đồng bộ Vốn -> Số dư cho các tài sản loại `position`.
+- **Tăng trưởng linh hoạt:** Hiển thị số tiền lãi tuyệt đối cho Tiết kiệm/Tiền mặt và hiển thị cả % kèm số tiền cho các tài sản đầu tư.
 
 ---
 

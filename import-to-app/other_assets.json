@@ -6,7 +6,8 @@
     "assetSymbol": "CASH_SSI",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 4907542
+    "balance": 4907542,
+    "purchasePrice": 4907542
   },
   {
     "accountName": "CIMB",
@@ -15,7 +16,8 @@
     "assetSymbol": "DEP_CIMB",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 30928
+    "balance": 30928,
+    "purchasePrice": 30928
   },
   {
     "accountName": "Momo",
@@ -24,7 +26,8 @@
     "assetSymbol": "CASH_MOMO",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 2191688
+    "balance": 2191688,
+    "purchasePrice": 2191688
   },
   {
     "accountName": "Momo",
@@ -34,6 +37,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 26931852,
+    "purchasePrice": 26931852,
     "interestRate": 4
   },
   {
@@ -44,6 +48,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 4978820,
+    "purchasePrice": 4978820,
     "interestRate": 6
   },
   {
@@ -54,6 +59,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 7466497,
+    "purchasePrice": 7466497,
     "interestRate": 6.5
   },
   {
@@ -64,6 +70,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 4851987,
+    "purchasePrice": 4851987,
     "interestRate": 6.5
   },
   {
@@ -74,6 +81,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 10074790,
+    "purchasePrice": 10074790,
     "interestRate": 8.5
   },
   {
@@ -84,6 +92,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 12075168,
+    "purchasePrice": 12075168,
     "interestRate": 7.2
   },
   {
@@ -94,6 +103,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 4987013,
+    "purchasePrice": 4987013,
     "interestRate": 7.2
   },
   {
@@ -104,6 +114,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 45269809,
+    "purchasePrice": 45269809,
     "interestRate": 6.4
   },
   {
@@ -114,6 +125,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 40184077,
+    "purchasePrice": 40184077,
     "interestRate": 6.1
   },
   {
@@ -123,7 +135,8 @@
     "assetSymbol": "CASH_SHOPEE",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 113300
+    "balance": 113300,
+    "purchasePrice": 113300
   },
   {
     "accountName": "Agribank",
@@ -132,7 +145,8 @@
     "assetSymbol": "BAL_AGR",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 969139
+    "balance": 969139,
+    "purchasePrice": 969139
   },
   {
     "accountName": "VNDIRECT",
@@ -141,7 +155,8 @@
     "assetSymbol": "CASH_VND",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 1754764
+    "balance": 1754764,
+    "purchasePrice": 1754764
   },
   {
     "accountName": "VNDIRECT",
@@ -151,6 +166,7 @@
     "assetCategory": "saving",
     "currency": "VND",
     "balance": 8215579,
+    "purchasePrice": 8215579,
     "interestRate": 5
   },
   {
@@ -160,7 +176,8 @@
     "assetSymbol": "DEP_TCB",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 127328
+    "balance": 127328,
+    "purchasePrice": 127328
   },
   {
     "accountName": "AGR",
@@ -169,7 +186,8 @@
     "assetSymbol": "DEP_AGR_BANK",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 969139
+    "balance": 969139,
+    "purchasePrice": 969139
   },
   {
     "accountName": "TPB",
@@ -178,7 +196,8 @@
     "assetSymbol": "DEP_TPB",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 2480151
+    "balance": 2480151,
+    "purchasePrice": 2480151
   },
   {
     "accountName": "Cash",
@@ -187,7 +206,8 @@
     "assetSymbol": "CASH_WALLET",
     "assetCategory": "cash",
     "currency": "VND",
-    "balance": 2034000
+    "balance": 2034000,
+    "purchasePrice": 2034000
   },
   {
     "accountName": "Binance",
@@ -196,7 +216,8 @@
     "assetSymbol": "USDT_BINANCE",
     "assetCategory": "usdt",
     "currency": "USDT",
-    "balance": 202.93
+    "balance": 202.93,
+    "purchasePrice": 202.93
   },
   {
     "accountName": "Binance",
@@ -205,7 +226,8 @@
     "assetSymbol": "BOT_SUPER",
     "assetCategory": "bot",
     "currency": "USDT",
-    "balance": 16.74
+    "balance": 16.74,
+    "purchasePrice": 16.74
   },
   {
     "accountName": "Binance",
@@ -214,6 +236,7 @@
     "assetSymbol": "BOT_LSK",
     "assetCategory": "bot",
     "currency": "USDT",
-    "balance": 39
+    "balance": 39,
+    "purchasePrice": 39
   }
 ]
