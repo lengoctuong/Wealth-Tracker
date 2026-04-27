@@ -15,7 +15,7 @@ Quy trình 3 bước đồng bộ dữ liệu:
 - [**Cách tính giá MA (CALCULATE_MA_PRICE.md)**](./logic/CALCULATE_MA_PRICE.md): Logic giá vốn cho Tab Chứng khoán.
 - [**Chỉ số trang Tổng quan (OVERVIEW_METRICS.md)**](./logic/OVERVIEW_METRICS.md): Giải thích các chỉ số Net Worth, P/L, Cash Ratio.
 - [**Logic Bảng Hiệu suất (PERFORMANCE_TABLE.md)**](./logic/PERFORMANCE_TABLE.md): Giải thích công thức tính toán trên Dashboard.
-- [**Phân loại Tài sản (ASSET_CLASSIFICATION.md)**](./features/ASSET_CLASSIFICATION.md): Chi tiết về các loại tài sản và quy tắc tính toán (FIFO vs Static).
+- [**Quản lý Đa lớp Tài sản (MULTI_LAYER_ASSETS.md)**](./features/MULTI_LAYER_ASSETS.md): Chi tiết về triết lý quản lý đa lớp tài sản (Đầu tư vs Ổn định) và các quy tắc tính toán (FIFO vs Static).
 
 ## 🏗️ Kiến trúc & Hệ thống
 - [**Kiến trúc tổng quát (ARCHITECTURE.md)**](./ARCHITECTURE.md): Tổng quan về Tech Stack, cấu trúc thư mục và các khái niệm cốt lõi.

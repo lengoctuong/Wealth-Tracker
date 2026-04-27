@@ -77,7 +77,6 @@ export function AddAccountModal({ isOpen, onClose, onAdd, onUpdate, editingAccou
                 <SelectItem value="crypto">Crypto (VD: Binance, OKX)</SelectItem>
                 <SelectItem value="polymarket">Polymarket</SelectItem>
                 <SelectItem value="cash">Tiền mặt</SelectItem>
-                <SelectItem value="other">Khác</SelectItem>
               </SelectContent>
             </Select>
           </div>

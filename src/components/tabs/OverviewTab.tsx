@@ -56,7 +56,7 @@ export function OverviewTab({
   const [isDebugOpen, setIsDebugOpen] = React.useState(false);
   const [isConfirmSyncOpen, setIsConfirmSyncOpen] = React.useState(false);
   const filteredAssets = useMemo(() => {
-    return assets.filter(a => !a.isFinished && (a.quantity === undefined || a.quantity > 0 || !["stock", "etf", "coin", "crypto", "fund", "position"].includes(a.category)));
+    return assets.filter(a => !a.isFinished && (a.quantity === undefined || a.quantity > 0 || !["stock", "etf", "coin", "fund", "position"].includes(a.category)));
   }, [assets]);
 
   // Helper to downsample data for Recharts to prevent RAM spikes on hover
@@ -156,7 +156,7 @@ export function OverviewTab({
         .filter(h => h.date <= dateStr)
         .sort((a, b) => b.date.localeCompare(a.date));
 
-      const oldValue = entriesBeforeOrOn.length > 0 
+      const oldValue = entriesBeforeOrOn.length > 0
         ? history.filter(h => h.date === entriesBeforeOrOn[0].date).reduce((sum, h) => sum + h.totalValue, 0)
         : 0;
 
@@ -171,7 +171,7 @@ export function OverviewTab({
     const calculateChange = (periodDate: Date) => {
       const { oldValue, cashFlowInPeriod } = getNetWorthAndCF(periodDate);
       if (oldValue === 0) return { amount: 0, percent: 0 };
-      
+
       // Profit in period = (Current - CashFlowInPeriod) - OldValue
       const amount = (currentNetWorth - cashFlowInPeriod) - oldValue;
       const percent = (amount / oldValue) * 100;
@@ -384,27 +384,27 @@ export function OverviewTab({
     // Filter to only show data from the first day the user has investment value
     const firstDataIndex = resultData.findIndex(d => d.value > 0);
     const displayData = firstDataIndex !== -1 ? resultData.slice(firstDataIndex) : resultData;
-    
+
     return downsampleData(displayData);
   }, [history, vnIndexHistory, investmentTransactions, assets, usdtRate]);
 
   // Calculate Current Total Profit Breakdown
   const profitBreakdown = useMemo(() => {
     if (netWorthHistoryData.length === 0) return { total: 0, unrealized: 0, realized: 0, unrealizedPercent: 0, percent: 0 };
-    
+
     const latest = netWorthHistoryData[netWorthHistoryData.length - 1];
     const totalProfit = latest.profit;
 
     // Unrealized = Sum((CurrentPrice - PurchasePrice) * Quantity) for active assets
     let currentHoldingsCost = 0;
     const unrealizedProfit = assets.reduce((sum, asset) => {
-      const isInvest = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(asset.category);
+      const isInvest = ["stock", "etf", "coin", "fund", "position"].includes(asset.category);
       if (!isInvest || !asset.quantity || asset.quantity <= 0 || !asset.purchasePrice || !asset.currentPrice) return sum;
-      
+
       const rate = ['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? (usdtRate || 1) : 1;
       const cost = asset.purchasePrice * asset.quantity * rate;
       const profit = (asset.currentPrice - asset.purchasePrice) * asset.quantity * rate;
-      
+
       currentHoldingsCost += cost;
       return sum + profit;
     }, 0);
@@ -507,7 +507,7 @@ export function OverviewTab({
               {profitBreakdown.total >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
               {profitBreakdown.total >= 0 ? "+" : ""}{profitBreakdown.percent.toFixed(2)}% (TWRR)
             </div>
-            
+
             <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">Lãi tạm tính (Unrealized):</span>
@@ -613,14 +613,14 @@ export function OverviewTab({
                       )}
                     </div>
                     <div className="w-48 h-1.5 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
-                      <div 
+                      <div
                         className={`h-full transition-all duration-300 ${isSyncingMarketData ? 'bg-blue-500' : 'bg-green-500'}`}
                         style={{ width: `${isSyncingMarketData ? syncProgress : backfillProgress}%` }}
                       />
                     </div>
                   </div>
                 )}
-                
+
                 <div className="flex flex-col items-end gap-1">
                   <Button
                     variant="outline"
@@ -1056,7 +1056,7 @@ export function OverviewTab({
           </div>
         )}
       </details>
-      
+
       <ConfirmModal
         isOpen={isConfirmSyncOpen}
         onClose={() => setIsConfirmSyncOpen(false)}

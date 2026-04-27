@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Trash2, Wallet, Landmark, Home, MoreHorizontal, Edit2, Coins } from "lucide-react";
+import { Trash2, Wallet, Landmark, Home, MoreHorizontal, Edit2, Coins, Target } from "lucide-react";
 import { Account, AccountType } from "../../hooks/useAccounts";
 import { Asset } from "../../hooks/useAssets";
 import { Transaction } from "../../hooks/useTransactions";
@@ -52,6 +52,7 @@ export function StandardTab({
       case 'payment': return <Wallet className="w-4 h-4" />;
       case 'usdt': return <Coins className="w-4 h-4" />;
       case 'usdc': return <Coins className="w-4 h-4" />;
+      case 'position': return <Target className="w-4 h-4" />;
       default: return <MoreHorizontal className="w-4 h-4" />;
     }
   };

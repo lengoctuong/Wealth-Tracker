@@ -35,6 +35,15 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
   const [loading, setLoading] = useState(false);
   const [fetchingPrice, setFetchingPrice] = useState(false);
 
+  useEffect(() => {
+    if (isOpen && !editingAsset && category === 'position') {
+      setCurrency("USDT");
+      if (purchasePrice && !balance) {
+        setBalance(purchasePrice);
+      }
+    }
+  }, [category, purchasePrice, isOpen, editingAsset]);
+
   const handleFetchPrice = async () => {
     if (!symbol) {
       toast.error("Vui lòng nhập mã (symbol) trước");
@@ -45,7 +54,7 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
     try {
       const upperSymbol = symbol.toUpperCase();
       let result: { value: number, timestamp: string } | null = null;
-      
+
       const now = new Date();
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -163,7 +172,7 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
       toast.error("Vui lòng chọn nguồn tài sản");
       return;
     }
-    
+
     if (isInvest && !isSimpleAsset && !symbol) {
       toast.error("Vui lòng nhập mã tài sản");
       return;
@@ -172,10 +181,10 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
     setLoading(true);
     try {
       const finalName = (isInvest && !isSimpleAsset) ? symbol.toUpperCase() : (customName || categories.find(c => c.value === category)?.label || category);
-      
+
       const numBalance = (isInvest && !isSimpleAsset) ? 0 : Number(balance) || 0;
-      const numPurchasePrice = isSimpleAsset ? 0 : Number(purchasePrice) || (category === 'saving' ? numBalance : Number(purchasePrice) || numBalance);
-      
+      const numPurchasePrice = Number(purchasePrice) || (category === 'saving' ? numBalance : 0);
+
       const assetData: any = {
         accountId,
         category,
@@ -184,7 +193,7 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
         balance: numBalance,
         purchasePrice: numPurchasePrice,
         purchaseDate: isInvest ? purchaseDate : undefined,
-        currentPrice: isSimpleAsset ? 0 : (Number(currentPrice) || numPurchasePrice || numBalance || 0),
+        currentPrice: isSimpleAsset ? 1 : (Number(currentPrice) || numPurchasePrice || numBalance || 0),
         interestRate: category === 'saving' ? Number(interestRate) || 0 : 0,
       };
 
@@ -300,18 +309,18 @@ export function AddAssetModal({ isOpen, onClose, onAdd, onUpdate, editingAsset, 
               <div className="space-y-2">
                 <Label>{isInvest ? "Giá hiện tại" : "Giá trị hiện tại"}</Label>
                 <div className="flex gap-2">
-                  <Input 
-                    type="number" 
-                    step="any" 
-                    value={currentPrice} 
-                    onChange={(e) => setCurrentPrice(e.target.value)} 
-                    placeholder="0" 
+                  <Input
+                    type="number"
+                    step="any"
+                    value={currentPrice}
+                    onChange={(e) => setCurrentPrice(e.target.value)}
+                    placeholder="0"
                   />
                   {isInvest && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="icon" 
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
                       onClick={handleFetchPrice}
                       disabled={fetchingPrice}
                       title="Lấy giá mới nhất"

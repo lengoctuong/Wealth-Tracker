@@ -9,24 +9,24 @@ export function cn(...inputs: ClassValue[]) {
 export function formatCurrency(value: number, currency: string = 'VND') {
   const upperCurrency = currency.toUpperCase();
   const isCrypto = ['USDT', 'BTC', 'ETH', 'SOL', 'BNB'].includes(upperCurrency);
-  
+
   if (isCrypto) {
-    return new Intl.NumberFormat('vi-VN', { 
+    return new Intl.NumberFormat('vi-VN', {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 6 
+      maximumFractionDigits: 6
     }).format(value) + ' ' + upperCurrency;
   }
 
   try {
-    return new Intl.NumberFormat('vi-VN', { 
-      style: 'currency', 
-      currency: upperCurrency 
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: upperCurrency
     }).format(value);
   } catch (e) {
     // Fallback for any other non-ISO currencies
-    return new Intl.NumberFormat('vi-VN', { 
+    return new Intl.NumberFormat('vi-VN', {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2 
+      maximumFractionDigits: 2
     }).format(value) + ' ' + upperCurrency;
   }
 }
@@ -35,15 +35,15 @@ export function formatCurrency(value: number, currency: string = 'VND') {
  * Calculates the value of an asset based on its category and currency.
  */
 export function getAssetValue(asset: any, usdtRate: number = 25500) {
-  const isInvest = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(asset.category);
+  const isInvest = ["stock", "etf", "coin", "fund", "position"].includes(asset.category);
   const isSimpleAsset = ["usdt", "bot", "position", "usdc"].includes(asset.category);
-  
-  const value = isInvest && !isSimpleAsset 
-    ? (asset.quantity || 0) * (asset.currentPrice || 0) 
+
+  const value = isInvest && !isSimpleAsset
+    ? (asset.quantity || 0) * (asset.currentPrice || 0)
     : (asset.balance || 0);
-    
+
   const multiplier = ['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1;
-  
+
   return value * multiplier;
 }
 
@@ -51,15 +51,15 @@ export function getAssetValue(asset: any, usdtRate: number = 25500) {
  * Calculates the purchase value of an asset based on its category and currency.
  */
 export function getPurchaseValue(asset: any, usdtRate: number = 25500) {
-  const isInvest = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(asset.category);
+  const isInvest = ["stock", "etf", "coin", "fund", "position"].includes(asset.category);
   const isSimpleAsset = ["usdt", "bot", "position", "usdc"].includes(asset.category);
-  
-  const value = isInvest && !isSimpleAsset 
-    ? (asset.quantity || 0) * (asset.purchasePrice || asset.currentPrice || 0) 
+
+  const value = isInvest && !isSimpleAsset
+    ? (asset.quantity || 0) * (asset.purchasePrice || asset.currentPrice || 0)
     : (asset.balance || 0);
-    
+
   const multiplier = ['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1;
-  
+
   return value * multiplier;
 }
 
@@ -99,27 +99,27 @@ export function getStartDateForRange(range: string, now: Date = new Date()): Dat
  */
 export function findStartIndexForDate(data: { date: string }[], startDate: Date): number {
   if (data.length === 0) return -1;
-  
+
   let closestIndex = 0;
   let minDiff = Infinity;
-  
+
   const targetTime = startDate.getTime();
-  
+
   for (let i = 0; i < data.length; i++) {
     const dateTime = new Date(data[i].date).getTime();
     const diff = Math.abs(dateTime - targetTime);
-    
+
     if (diff < minDiff) {
       minDiff = diff;
       closestIndex = i;
     }
-    
+
     // Since data is sorted, we can break early if we passed the target and diff starts increasing
     if (dateTime > targetTime && diff > minDiff) {
       break;
     }
   }
-  
+
   return closestIndex;
 }
 
@@ -136,7 +136,8 @@ export function getCategoryLabel(category: string, accountType?: string) {
     case 'coin': return "Coin / Token";
     case 'usdt': return "USDT / Stablecoin";
     case 'bot': return "Bot Trading";
-    default: 
+    case 'position': return "Vị thế";
+    default:
       if (!category) return "";
       return category.charAt(0).toUpperCase() + category.slice(1);
   }

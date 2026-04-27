@@ -37,7 +37,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
     }
 
     const q = query(collection(db, "assetHistory"), where("userId", "==", user.uid));
-    
+
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -59,28 +59,28 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
   // Function to take a daily snapshot
   const snapshotPortfolio = async (customDate?: string, customVnIndex?: number) => {
     if (!user || assets.length === 0) return;
-    
+
     const now = new Date();
     const day = now.getDay();
     // Skip Saturday (6) and Sunday (0)
     if (!customDate && (day === 0 || day === 6)) return;
-    
+
     const targetDate = customDate || now.toISOString().split('T')[0];
-    
+
     try {
       // Check if snapshot already exists for this date
       const q = query(
-        collection(db, "assetHistory"), 
+        collection(db, "assetHistory"),
         where("userId", "==", user.uid),
         where("date", "==", targetDate)
       );
       const snapshot = await getDocs(q);
-      
+
       const batch = writeBatch(db);
       snapshot.forEach(docSnap => {
         batch.delete(docSnap.ref);
       });
-      
+
       // Calculate realized profit for today
       const realizedProfitToday = investmentTransactions
         .filter(tx => tx.type === 'sell' && tx.date === targetDate)
@@ -90,19 +90,19 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
       const accountData: Record<string, { value: number, cost: number }> = {};
       assets.forEach(asset => {
         // Only include investment assets
-        if (!["stock", "etf", "coin", "fund", "crypto"].includes(asset.category)) return;
-        
+        if (!["stock", "etf", "coin", "fund"].includes(asset.category)) return;
+
         const valueInVnd = getAssetValue(asset, usdtRate);
         const isUsd = ['USD', 'USDT', 'USDC'].includes(asset.currency?.toUpperCase());
         const costInVnd = (asset.purchasePrice || 0) * (asset.quantity || 0) * (isUsd ? usdtRate : 1);
-        
+
         if (!accountData[asset.accountId]) {
           accountData[asset.accountId] = { value: 0, cost: 0 };
         }
         accountData[asset.accountId].value += valueInVnd;
         accountData[asset.accountId].cost += costInVnd;
       });
-      
+
       // Calculate realized profit for targetDate
       const realizedProfitByAccount: Record<string, number> = {};
       investmentTransactions.filter(tx => tx.date === targetDate && tx.type === 'sell').forEach(tx => {
@@ -129,7 +129,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
           timestamp: new Date().toISOString()
         });
       });
-      
+
       await batch.commit();
     } catch (error) {
       console.error("Failed to snapshot portfolio", error);
@@ -149,7 +149,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
       const startDateStr = sortedTxs[0].date;
       const startDate = new Date(startDateStr);
       const today = new Date();
-      
+
       // Calculate total days for progress
       const totalDays = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
       let processedDays = 0;
@@ -158,15 +158,15 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
       const tickers = Array.from(new Set(assetsToUse.filter(a => a.symbol).map(a => a.symbol!)));
       const priceHistoryMap: Record<string, PriceResult[]> = {};
       let vnIndexHistory: PriceResult[] | null = null;
-      
+
       const vnSnap = await getDoc(doc(db, "marketData", "VNINDEX"));
       if (vnSnap.exists()) {
         const data = vnSnap.data();
         if (data && data.history) {
-           vnIndexHistory = data.history.map((h: any) => ({
-             timestamp: h.timestamp + "T00:00:00",
-             value: h.value
-           }));
+          vnIndexHistory = data.history.map((h: any) => ({
+            timestamp: h.timestamp + "T00:00:00",
+            value: h.value
+          }));
         }
       }
 
@@ -192,7 +192,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
         const data = doc.data();
         existingHistoryMap.set(`${data.accountId}_${data.date}`, { id: doc.id, ...data });
       });
-      
+
       const seenDocKeys = new Set<string>();
 
       // 4. Iterate day by day and create new snapshots
@@ -200,10 +200,10 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
       let currentBatch = writeBatch(db);
       let batchCount = 0;
       let lastVnIndex = 0;
-      
+
       // Track last known price for each ticker to handle data gaps (especially for funds)
       const lastKnownPrices: Record<string, number> = {};
-      
+
       while (currentDate <= today) {
         const day = currentDate.getDay();
         // Skip Saturday (6) and Sunday (0)
@@ -216,22 +216,22 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
 
         const dateStr = currentDate.toISOString().split('T')[0];
         setBackfillStatus(`Đang tính lịch sử ngày ${dateStr}...`);
-        
+
         // Calculate holdings on this date
         const holdings: Record<string, { quantity: number, cost: number, asset: Asset }> = {};
-        
+
         // Filter transactions up to this date
         const txsToDate = investmentTransactions.filter(tx => tx.date <= dateStr);
-        
+
         // Calculate quantity and cost for each asset
         txsToDate.forEach(tx => {
           const asset = assetsToUse.find(a => a.id === tx.assetId);
           if (!asset) return;
-          
+
           if (!holdings[tx.assetId]) {
             holdings[tx.assetId] = { quantity: 0, cost: 0, asset };
           }
-          
+
           if (tx.type === 'buy') {
             holdings[tx.assetId].quantity += tx.quantity;
             holdings[tx.assetId].cost += tx.quantity * tx.price;
@@ -249,13 +249,13 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
           .forEach(tx => {
             const asset = assetsToUse.find(a => a.id === tx.assetId);
             if (!asset) return;
-            
+
             // Find avg price before this transaction
-            const txsBefore = investmentTransactions.filter(t => 
-              t.assetId === tx.assetId && 
+            const txsBefore = investmentTransactions.filter(t =>
+              t.assetId === tx.assetId &&
               (t.date < tx.date || (t.date === tx.date && t.createdAt < tx.createdAt))
             );
-            
+
             let qty = 0;
             let cost = 0;
             txsBefore.forEach(t => {
@@ -268,7 +268,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
                 cost -= t.quantity * avg;
               }
             });
-            
+
             const avgPrice = qty > 0 ? cost / qty : 0;
             const rate = ['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? (usdtRate || 1) : 1;
             const profit = (tx.price - avgPrice) * tx.quantity * rate;
@@ -277,25 +277,25 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
 
         // Calculate total value and cost for each account
         const accountData: Record<string, { value: number, cost: number, realizedProfit: number }> = {};
-        
+
         // Initialize accountData for all accounts that have transactions up to this date
         const activeAccounts = new Set<string>();
         txsToDate.forEach(tx => {
           const asset = assetsToUse.find(a => a.id === tx.assetId);
           if (asset) activeAccounts.add(asset.accountId);
         });
-        
+
         activeAccounts.forEach(accountId => {
           accountData[accountId] = { value: 0, cost: 0, realizedProfit: 0 };
         });
-        
+
         Object.values(holdings).forEach(({ quantity, cost, asset }) => {
           if (quantity <= 0) return;
-          
+
           const ticker = asset.symbol;
           const prices = ticker ? priceHistoryMap[ticker] : null;
           const priceObj = prices?.find(p => p.timestamp.startsWith(dateStr));
-          
+
           // Logic: Use current date price if available, otherwise use last known price, 
           // fallback to asset's current/purchase price if it's the first time
           let price = 0;
@@ -308,11 +308,11 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
             price = asset.currentPrice || asset.purchasePrice || 0;
             if (ticker && price > 0) lastKnownPrices[ticker] = price;
           }
-          
+
           const isUsd = ['USD', 'USDT', 'USDC'].includes(asset.currency?.toUpperCase());
           const valueInVnd = quantity * price * (isUsd ? usdtRate : 1);
           const costInVnd = cost * (isUsd ? usdtRate : 1);
-          
+
           if (!accountData[asset.accountId]) {
             accountData[asset.accountId] = { value: 0, cost: 0, realizedProfit: 0 };
           }
@@ -338,22 +338,22 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
         Object.entries(accountData).forEach(([accountId, data]) => {
           const docKey = `${accountId}_${dateStr}`;
           seenDocKeys.add(docKey);
-          
+
           const existing = existingHistoryMap.get(docKey);
           const totalValue = Math.round(data.value);
           const totalCost = Math.round(data.cost);
           const realizedProfit = Math.round(data.realizedProfit);
 
           // Only write if something has changed
-          if (!existing || 
-              existing.totalValue !== totalValue || 
-              existing.totalCost !== totalCost || 
-              existing.realizedProfit !== realizedProfit ||
-              existing.vnIndex !== vnIndex) {
-            
+          if (!existing ||
+            existing.totalValue !== totalValue ||
+            existing.totalCost !== totalCost ||
+            existing.realizedProfit !== realizedProfit ||
+            existing.vnIndex !== vnIndex) {
+
             const docId = `${user.uid}_${accountId}_${dateStr}`;
             const docRef = doc(db, "assetHistory", docId);
-            
+
             currentBatch.set(docRef, {
               userId: user.uid,
               accountId,
@@ -364,7 +364,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
               vnIndex,
               timestamp: new Date().toISOString()
             });
-            
+
             batchCount++;
             if (batchCount >= 400) {
               currentBatch.commit();
@@ -382,7 +382,7 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
       // 5. Delete orphaned records (dates/accounts that no longer exist in our calculation)
       let deleteBatch = writeBatch(db);
       let deleteCount = 0;
-      
+
       existingHistoryMap.forEach((value, key) => {
         if (!seenDocKeys.has(key)) {
           deleteBatch.delete(doc(db, "assetHistory", value.id));
@@ -394,10 +394,10 @@ export const useAssetHistory = (assets: Asset[], vnIndexValue: number | null, us
           }
         }
       });
-      
+
       if (deleteCount > 0) await deleteBatch.commit();
       if (batchCount > 0) await currentBatch.commit();
-      
+
       console.log("Backfill complete");
     } catch (error) {
       console.error("Failed to backfill history", error);

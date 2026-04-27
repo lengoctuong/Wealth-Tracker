@@ -38,7 +38,7 @@ export const useAssets = () => {
     }
 
     const q = query(collection(db, "assets"), where("userId", "==", user.uid));
-    
+
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -65,10 +65,10 @@ export const useAssets = () => {
     }
 
     const q = query(
-      collection(db, "investment_transactions"), 
+      collection(db, "investment_transactions"),
       where("userId", "==", user.uid)
     );
-    
+
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -91,9 +91,9 @@ export const useAssets = () => {
   const mergedAssets = useMemo(() => {
     return assets.map(asset => {
       // If it's an investment asset, calculate quantity and purchasePrice from transactions
-      if (["stock", "etf", "coin", "fund", "crypto"].includes(asset.category)) {
+      if (["stock", "etf", "coin", "fund"].includes(asset.category)) {
         const assetTxs = investmentTransactions.filter(tx => tx.assetId === asset.id);
-        
+
         let totalQuantity = 0;
         let avgPurchasePrice = 0;
 
@@ -101,10 +101,10 @@ export const useAssets = () => {
           // MA Logic (VNDIRECT style for Brokerage tab only)
           // Sort chronologically ascending
           const sortedTxs = [...assetTxs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          
+
           let maPrice = 0;
           let currentQty = 0;
-          
+
           for (const tx of sortedTxs) {
             if (tx.type === "buy") {
               const newQty = currentQty + tx.quantity;
@@ -129,7 +129,7 @@ export const useAssets = () => {
           const totalCost = assetTxs.reduce((sum, tx) => sum + (tx.remainingQty * tx.price), 0);
           avgPurchasePrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
         }
-        
+
         return {
           ...asset,
           quantity: totalQuantity,
@@ -147,7 +147,7 @@ export const useAssets = () => {
     if (!user) return null;
     try {
       let existingAsset: Asset | undefined = undefined;
-      
+
       if (asset.symbol || asset.name) {
         let q;
         if (asset.symbol) {
@@ -167,7 +167,7 @@ export const useAssets = () => {
             where("name", "==", asset.name)
           );
         }
-        
+
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
           const docData = snapshot.docs[0].data() as any;
@@ -178,7 +178,7 @@ export const useAssets = () => {
       if (existingAsset) {
         // If it's an investment asset, we don't update quantity/purchasePrice here anymore
         // as they are derived from transactions. We might update currentPrice though.
-        if (["stock", "etf", "coin", "fund", "crypto"].includes(asset.category)) {
+        if (["stock", "etf", "coin", "fund"].includes(asset.category)) {
           const updates: any = {
             updatedAt: new Date().toISOString(),
           };
@@ -219,7 +219,7 @@ export const useAssets = () => {
         };
 
         // For investment assets, we don't need to store quantity/purchasePrice in the doc
-        if (["stock", "etf", "coin", "fund", "crypto"].includes(asset.category)) {
+        if (["stock", "etf", "coin", "fund"].includes(asset.category)) {
           delete data.quantity;
           delete data.purchasePrice;
           delete data.balance;
@@ -238,7 +238,7 @@ export const useAssets = () => {
     if (!user) return;
     try {
       const assetRef = doc(db, "assets", id);
-      
+
       await updateDoc(assetRef, sanitizeFirestoreData({
         ...updates,
         updatedAt: new Date().toISOString(),

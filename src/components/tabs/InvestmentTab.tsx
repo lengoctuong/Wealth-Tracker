@@ -29,6 +29,13 @@ interface Props {
   onEditAsset: (asset: Asset) => void;
   onEditAccount: (account: Account) => void;
   onOpenTransactions: (asset: Asset) => void;
+  isBackfilling?: boolean;
+  isSyncingMarketData?: boolean;
+  syncProgress?: number;
+  syncStatus?: string;
+  backfillProgress?: number;
+  backfillStatus?: string;
+  onBackfill?: () => void;
 }
 
 export function InvestmentTab({
@@ -45,7 +52,14 @@ export function InvestmentTab({
   onDeleteAccount,
   onEditAsset,
   onEditAccount,
-  onOpenTransactions
+  onOpenTransactions,
+  isBackfilling = false,
+  isSyncingMarketData = false,
+  syncProgress = 0,
+  syncStatus = "",
+  backfillProgress = 0,
+  backfillStatus = "",
+  onBackfill
 }: Props) {
   const [deleteAccountInfo, setDeleteAccountInfo] = useState<{ id: string, name: string } | null>(null);
   const [deleteAssetInfo, setDeleteAssetInfo] = useState<{ id: string, name: string } | null>(null);
@@ -235,7 +249,7 @@ export function InvestmentTab({
           if (a.isFinished) return false;
 
           // Các loại tài sản đầu tư cần ẩn khi đã bán hết (quantity = 0)
-          const isTradeable = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(a.category);
+          const isTradeable = ["stock", "etf", "coin", "fund"].includes(a.category);
 
           if (isTradeable) {
             return (a.quantity || 0) > 0;
@@ -255,7 +269,7 @@ export function InvestmentTab({
           const val = getAssetValue(asset, usdtRate);
           totalValue += val;
 
-          const isInvestable = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(asset.category);
+          const isInvestable = ["stock", "etf", "coin", "fund", "position"].includes(asset.category);
           if (isInvestable) {
             investedValue += val;
             investedPurchaseValue += getPurchaseValue(asset, usdtRate);
@@ -298,7 +312,7 @@ export function InvestmentTab({
               <div className="h-[350px] w-full">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-500">Hiệu suất so với VN-Index (%)</h3>
-                  
+
                   <div className="flex bg-gray-100 p-0.5 rounded-md overflow-x-auto">
                     {['7d', '30d', '3m', '6m', '1y', '3y', '5y', 'all'].map((range) => (
                       <button
@@ -310,12 +324,12 @@ export function InvestmentTab({
                           }`}
                       >
                         {range === '7d' ? '1W' :
-                         range === '30d' ? '1M' :
-                         range === '3m' ? '3M' :
-                         range === '6m' ? '6M' :
-                         range === '1y' ? '1Y' :
-                         range === '3y' ? '3Y' :
-                         range === '5y' ? '5Y' : 'ALL'}
+                          range === '30d' ? '1M' :
+                            range === '3m' ? '3M' :
+                              range === '6m' ? '6M' :
+                                range === '1y' ? '1Y' :
+                                  range === '3y' ? '3Y' :
+                                    range === '5y' ? '5Y' : 'ALL'}
                       </button>
                     ))}
                   </div>
@@ -324,17 +338,17 @@ export function InvestmentTab({
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis 
-                        dataKey="date" 
-                        tickFormatter={(val) => format(new Date(val), 'dd/MM')} 
-                        stroke="#94a3b8" 
-                        fontSize={10} 
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={(val) => format(new Date(val), 'dd/MM')}
+                        stroke="#94a3b8"
+                        fontSize={10}
                         tickLine={false}
                         axisLine={false}
                       />
-                      <YAxis 
-                        tickFormatter={(val) => `${val > 0 ? '+' : ''}${val.toFixed(1)}%`} 
-                        stroke="#94a3b8" 
+                      <YAxis
+                        tickFormatter={(val) => `${val > 0 ? '+' : ''}${val.toFixed(1)}%`}
+                        stroke="#94a3b8"
                         fontSize={10}
                         tickLine={false}
                         axisLine={false}
@@ -357,7 +371,7 @@ export function InvestmentTab({
                                       </span>
                                     </div>
                                     <div className="pl-4 text-gray-400">
-                                      Giá trị: {entry.name === 'valuePct' 
+                                      Giá trị: {entry.name === 'valuePct'
                                         ? (showValues ? formatCurrency(entry.payload.value) : "****")
                                         : entry.payload.vnIndex.toLocaleString()}
                                     </div>
@@ -377,7 +391,7 @@ export function InvestmentTab({
                           return null;
                         }}
                       />
-                      <Legend 
+                      <Legend
                         verticalAlign="top"
                         align="right"
                         height={36}
@@ -386,184 +400,190 @@ export function InvestmentTab({
                           <span className="text-[10px] font-medium text-slate-600 uppercase tracking-wider">
                             {value === 'vnIndexPct' ? 'VN-Index' : 'Portfolio'}
                           </span>
-                        )} 
+                        )}
                       />
-                      <Line 
+                      <Line
                         name="valuePct"
-                        type="monotone" 
-                        dataKey="valuePct" 
-                        stroke="#2563eb" 
-                        strokeWidth={3} 
-                        dot={false} 
-                        activeDot={{ r: 6, strokeWidth: 0 }} 
+                        type="monotone"
+                        dataKey="valuePct"
+                        stroke="#2563eb"
+                        strokeWidth={3}
+                        dot={false}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
                       />
-                      <Line 
+                      <Line
                         name="vnIndexPct"
-                        type="monotone" 
-                        dataKey="vnIndexPct" 
-                        stroke="#94a3b8" 
-                        strokeWidth={2} 
+                        type="monotone"
+                        dataKey="vnIndexPct"
+                        stroke="#94a3b8"
+                        strokeWidth={2}
                         strokeDasharray="5 5"
-                        dot={false} 
+                        dot={false}
                       />
                     </LineChart>
                   </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400 text-sm">Chưa có dữ liệu lịch sử</div>
-                  )}
-                </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-400 text-sm">Chưa có dữ liệu lịch sử</div>
+                )}
+              </div>
 
-                {/* Row 2: Assets Table Section */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-gray-500">Danh mục tài sản</h3>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+              {/* Row 2: Assets Table Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-gray-500">Danh mục tài sản</h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tên</TableHead>
+                        <TableHead>Phân loại</TableHead>
+                        <TableHead className="text-right">Số lượng</TableHead>
+                        <TableHead className="text-right">Giá mua</TableHead>
+                        <TableHead className="text-right">Giá HT</TableHead>
+                        <TableHead className="text-right">Tăng trưởng</TableHead>
+                        <TableHead className="text-right">Tổng</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {accountAssets.length === 0 ? (
                         <TableRow>
-                          <TableHead>Tên</TableHead>
-                          <TableHead>Phân loại</TableHead>
-                          <TableHead className="text-right">Số lượng</TableHead>
-                          <TableHead className="text-right">Giá mua</TableHead>
-                          <TableHead className="text-right">Giá HT</TableHead>
-                          <TableHead className="text-right">Tăng trưởng</TableHead>
-                          <TableHead className="text-right">Tổng</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableCell colSpan={7} className="text-center text-gray-500 py-4">Chưa có khoản mục nào</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {accountAssets.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={7} className="text-center text-gray-500 py-4">Chưa có khoản mục nào</TableCell>
-                          </TableRow>
-                        ) : (
-                          (() => {
-                            // Custom sorting: Cash -> Saving -> ETF -> Stock -> Others
-                            const sortedAssets = [...accountAssets].sort((a, b) => {
-                              const categoryOrder = { 'cash': 0, 'saving': 1, 'etf': 2, 'stock': 3 };
-                              const aOrder = categoryOrder[a.category as keyof typeof categoryOrder] ?? 4;
-                              const bOrder = categoryOrder[b.category as keyof typeof categoryOrder] ?? 4;
+                      ) : (
+                        (() => {
+                          // Custom sorting: Cash -> Saving -> ETF -> Stock -> Others
+                          const sortedAssets = [...accountAssets].sort((a, b) => {
+                            const categoryOrder = { 'cash': 0, 'saving': 1, 'etf': 2, 'stock': 3 };
+                            const aOrder = categoryOrder[a.category as keyof typeof categoryOrder] ?? 4;
+                            const bOrder = categoryOrder[b.category as keyof typeof categoryOrder] ?? 4;
 
-                              if (aOrder !== bOrder) return aOrder - bOrder;
+                            if (aOrder !== bOrder) return aOrder - bOrder;
 
-                              if (a.category === 'saving' && b.category === 'saving') {
-                                if ((a.interestRate || 0) !== (b.interestRate || 0)) {
-                                  return (a.interestRate || 0) - (b.interestRate || 0);
-                                }
-                                return getAssetValue(a, usdtRate) - getAssetValue(b, usdtRate);
+                            if (a.category === 'saving' && b.category === 'saving') {
+                              if ((a.interestRate || 0) !== (b.interestRate || 0)) {
+                                return (a.interestRate || 0) - (b.interestRate || 0);
                               }
+                              return getAssetValue(a, usdtRate) - getAssetValue(b, usdtRate);
+                            }
 
-                              // Group sorting for ETF, Stock, and others: DESC total value
-                              return getAssetValue(b, usdtRate) - getAssetValue(a, usdtRate);
-                            });
+                            // Group sorting for ETF, Stock, and others: DESC total value
+                            return getAssetValue(b, usdtRate) - getAssetValue(a, usdtRate);
+                          });
 
-                            return sortedAssets.map(asset => {
-                              const isInvest = ["stock", "etf", "coin", "crypto", "fund", "position"].includes(asset.category);
-                              const isSimpleAsset = ["usdt", "bot", "position", "usdc"].includes(asset.category);
-                              const isCashOrSaving = ["cash", "saving"].includes(asset.category);
+                          return sortedAssets.map(asset => {
+                            const isInvest = ["stock", "etf", "coin", "fund", "position"].includes(asset.category);
+                            const isSimpleAsset = ["usdt", "bot", "position", "usdc"].includes(asset.category);
+                            const isCashOrSaving = ["cash", "saving"].includes(asset.category);
 
-                              const totalValueVnd = getAssetValue(asset, usdtRate);
-                              const purchasePrice = asset.purchasePrice || asset.currentPrice || 0;
-                              const growth = purchasePrice > 0 ? ((asset.currentPrice || 0) - purchasePrice) / purchasePrice * 100 : 0;
+                            const totalValueVnd = getAssetValue(asset, usdtRate);
+                            const purchasePrice = asset.purchasePrice || asset.currentPrice || 0;
+                            const growth = purchasePrice > 0 ? ((asset.currentPrice || 0) - purchasePrice) / purchasePrice * 100 : 0;
 
-                              return (
-                                <TableRow key={asset.id}>
-                                  <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                                        {getAssetIcon(asset.category)}
-                                      </div>
-                                      <div>
-                                        <p className="text-sm">{asset.name}</p>
-                                        <div className="flex flex-col">
-                                          {asset.symbol && <span className="text-[10px] text-gray-400">{asset.symbol}</span>}
-                                          {isCashOrSaving && (
-                                            <span className="text-[10px] text-green-600 font-medium">
-                                              Lãi suất: {asset.category === 'cash' ? '0%' : (asset.interestRate ? `${asset.interestRate}%` : '0%')}
-                                            </span>
-                                          )}
-                                        </div>
+                            return (
+                              <TableRow key={asset.id}>
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                                      {getAssetIcon(asset.category)}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm">{asset.name}</p>
+                                      <div className="flex flex-col">
+                                        {asset.symbol && <span className="text-[10px] text-gray-400">{asset.symbol}</span>}
+                                        {isCashOrSaving && (
+                                          <span className="text-[10px] text-green-600 font-medium">
+                                            Lãi suất: {asset.category === 'cash' ? '0%' : (asset.interestRate ? `${asset.interestRate}%` : '0%')}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline" className="bg-gray-50 text-xs">{getCategoryLabel(asset.category, type)}</Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right text-sm">
-                                    {isInvest && !isSimpleAsset ? (showValues ? asset.quantity?.toLocaleString() : "****") : (showValues ? (asset.balance || 0).toLocaleString() : "****")}
-                                  </TableCell>
-                                  <TableCell className="text-right text-sm">
-                                    {isInvest && !isSimpleAsset ? (
-                                      <div className="flex flex-col items-end">
-                                        <span>{showValues ? formatCurrency(purchasePrice, asset.currency) : "****"}</span>
-                                        {asset.currency !== 'VND' && showValues && (
-                                          <span className="text-[10px] text-gray-400">
-                                            ≈ {formatCurrency(purchasePrice * (['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1), 'VND')}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right text-sm">
-                                    {isInvest && !isSimpleAsset ? (
-                                      <div className="flex flex-col items-end">
-                                        <span>{showValues ? formatCurrency(asset.currentPrice || 0, asset.currency) : "****"}</span>
-                                        {asset.currency !== 'VND' && showValues && (
-                                          <span className="text-[10px] text-gray-400">
-                                            ≈ {formatCurrency((asset.currentPrice || 0) * (['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1), 'VND')}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right text-sm">
-                                    {isCashOrSaving ? (
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="bg-gray-50 text-xs">{getCategoryLabel(asset.category, type)}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {isInvest && !isSimpleAsset ? (showValues ? asset.quantity?.toLocaleString() : "****") : (['bot', 'position'].includes(asset.category) ? '-' : (showValues ? (asset.balance || 0).toLocaleString() : "****"))}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {(isInvest && !isSimpleAsset) || ['bot', 'position'].includes(asset.category) ? (
+                                    <div className="flex flex-col items-end">
+                                      <span>{showValues ? formatCurrency(['bot', 'position'].includes(asset.category) ? (asset.purchasePrice || 0) : purchasePrice, asset.currency) : "****"}</span>
+                                      {asset.currency !== 'VND' && showValues && (
+                                        <span className="text-[10px] text-gray-400">
+                                          ≈ {formatCurrency((['bot', 'position'].includes(asset.category) ? (asset.purchasePrice || 0) : purchasePrice) * (['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1), 'VND')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : '-'}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {(isInvest && !isSimpleAsset) || ['bot', 'position'].includes(asset.category) ? (
+                                    <div className="flex flex-col items-end">
+                                      <span>{showValues ? formatCurrency(['bot', 'position'].includes(asset.category) ? (asset.balance || 0) : (asset.currentPrice || 0), asset.currency) : "****"}</span>
+                                      {asset.currency !== 'VND' && showValues && (
+                                        <span className="text-[10px] text-gray-400">
+                                          ≈ {formatCurrency((['bot', 'position'].includes(asset.category) ? (asset.balance || 0) : (asset.currentPrice || 0)) * (['USDT', 'USDC', 'USD'].includes(asset.currency?.toUpperCase()) ? usdtRate : 1), 'VND')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : '-'}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {isCashOrSaving ? (
+                                    (() => {
+                                      const initial = asset.purchasePrice || 0;
+                                      const current = asset.balance || 0;
+                                      const profit = current - initial;
+                                      if (initial === 0 && current === 0) return <span className="text-gray-400">-</span>;
+                                      return (
+                                        <span className={`font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                          {profit >= 0 ? "+" : ""}{showValues ? formatCurrency(profit, asset.currency) : "****"}
+                                        </span>
+                                      );
+                                    })()
+                                  ) : (
+                                    ((isInvest && !isSimpleAsset) || ['bot', 'position'].includes(asset.category)) && purchasePrice > 0 ? (
                                       (() => {
-                                        const initial = asset.purchasePrice || 0;
-                                        const current = asset.balance || 0;
-                                        const profit = current - initial;
-                                        if (initial === 0 && current === 0) return <span className="text-gray-400">-</span>;
+                                        const currentVal = ['bot', 'position'].includes(asset.category) ? (asset.balance || 0) : (asset.currentPrice || 0);
+                                        const growthPct = ((currentVal - purchasePrice) / purchasePrice) * 100;
                                         return (
-                                          <span className={`font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                            {profit >= 0 ? "+" : ""}{showValues ? formatCurrency(profit, asset.currency) : "****"}
-                                          </span>
+                                          <div className="flex flex-col items-end">
+                                            <span className={growthPct >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                                              {growthPct >= 0 ? "+" : ""}{growthPct.toFixed(2)}%
+                                            </span>
+                                            <span className={`text-[10px] ${growthPct >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                              {growthPct >= 0 ? "+" : ""}{showValues ? formatCurrency(currentVal - purchasePrice, asset.currency) : "****"}
+                                            </span>
+                                          </div>
                                         );
                                       })()
-                                    ) : (
-                                      isInvest && !isSimpleAsset && purchasePrice > 0 ? (
-                                        <div className="flex flex-col items-end">
-                                          <span className={growth >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                                            {growth >= 0 ? "+" : ""}{growth.toFixed(2)}%
-                                          </span>
-                                          <span className={`text-[10px] ${growth >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                            {growth >= 0 ? "+" : ""}{showValues ? formatCurrency(((asset.currentPrice || 0) - purchasePrice) * (asset.quantity || 0), asset.currency) : "****"}
-                                          </span>
-                                        </div>
-                                      ) : '-'
+                                    ) : '-'
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right font-semibold text-primary text-sm">{showValues ? formatCurrency(totalValueVnd, 'VND') : "****"}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1">
+                                    {isInvest && !isSimpleAsset && (
+                                      <Button variant="ghost" size="icon" onClick={() => onOpenTransactions(asset)} className="h-8 w-8 text-green-500 hover:text-green-700 hover:bg-green-50" title="Lịch sử giao dịch">
+                                        <ArrowRightLeft className="w-3 h-3" />
+                                      </Button>
                                     )}
-                                  </TableCell>
-                                  <TableCell className="text-right font-semibold text-primary text-sm">{showValues ? formatCurrency(totalValueVnd, 'VND') : "****"}</TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex justify-end gap-1">
-                                      {isInvest && !isSimpleAsset && (
-                                        <Button variant="ghost" size="icon" onClick={() => onOpenTransactions(asset)} className="h-8 w-8 text-green-500 hover:text-green-700 hover:bg-green-50" title="Lịch sử giao dịch">
-                                          <ArrowRightLeft className="w-3 h-3" />
-                                        </Button>
-                                      )}
-                                      <Button variant="ghost" size="icon" onClick={() => onEditAsset(asset)} className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50">
-                                        <Edit2 className="w-3 h-3" />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" onClick={() => setDeleteAssetInfo({ id: asset.id, name: asset.name })} className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50">
-                                        <Trash2 className="w-3 h-3" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            });
-                          })()
-                        )}
-                      </TableBody>
-                    </Table>
+                                    <Button variant="ghost" size="icon" onClick={() => onEditAsset(asset)} className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50">
+                                      <Edit2 className="w-3 h-3" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => setDeleteAssetInfo({ id: asset.id, name: asset.name })} className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50">
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          });
+                        })()
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
 

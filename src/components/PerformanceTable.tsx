@@ -69,7 +69,17 @@ export function PerformanceTable({ accounts, assets, investmentTransactions, usd
     return map;
   }, [investmentTransactions]);
 
-  const investmentAccounts = useMemo(() => accounts.filter(a => ['brokerage', 'crypto', 'fintech'].includes(a.type)), [accounts]);
+  const investmentAccounts = useMemo(() => {
+    const filtered = accounts.filter(a => ['brokerage', 'crypto', 'fintech'].includes(a.type));
+    return [...filtered].sort((a, b) => {
+      const isASSI = a.name.toUpperCase().includes('SSI');
+      const isBSSI = b.name.toUpperCase().includes('SSI');
+      
+      if (isASSI && !isBSSI) return 1;
+      if (!isASSI && isBSSI) return -1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [accounts]);
 
   useEffect(() => {
     let active = true;
